@@ -35,11 +35,9 @@ function b!() {
         ;;
       "query")
         local query="${*/"query"/""}"
-        echo "query is $query"
         local code_to_exec="bott query \"$query\""
-        echo "code_to_exec is $code_to_exec"
         local x=$(eval "$code_to_exec")
-        echo "x is $x"
+        echo "$x"
 #              local in
 #              read in
 #              echo you said $in
