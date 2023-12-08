@@ -2,8 +2,10 @@ use clap::{arg, Command};
 use regex::Regex;
 use reqwest;
 use serde::{Deserialize, Serialize};
+use spinners::{Spinner, Spinners};
 use std::process::exit;
 
+const SYSTEM_PROMPT: &str = "You are a helpful code assistant who helps people write single line bash scripts for terminal usage. For your information, user is running {distro} operating system and {shell} shell. Bash code must always be enclosed between ```bash and ``` tags.";
 fn cli() -> Command {
     Command::new("bott")
         .about("Your friendly terminal-hood chatbot")
@@ -13,7 +15,17 @@ fn cli() -> Command {
                 .about("Query")
                 .arg_required_else_help(true)
                 .arg(
-                    arg!(<TEXT> "query text")
+                    arg!(distro: -d --distro <DISTRO> "distro")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(shell: -s --shell <SHELL> "shell")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(query: -q --query <QUERY> "query text")
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
                 ),
@@ -59,7 +71,15 @@ async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
     let first = codellama_models.get(0).unwrap().name.clone();
     Ok(Some(first))
 }
-async fn generate(query: &str, model: &str) -> Result<Option<String>, reqwest::Error> {
+fn get_system_prompt(distro: &str, shell: &str) -> String {
+    return format!("You are a helpful code assistant who helps people write single line bash scripts for terminal usage. For your information, user is running {distro} operating system and {shell} shell. Bash code must always be enclosed between ```bash and ``` tags.", distro=distro, shell=shell);
+}
+async fn generate(
+    query: &str,
+    model: &str,
+    distro: &str,
+    shell: &str,
+) -> Result<Option<String>, reqwest::Error> {
     let client = reqwest::Client::new();
     let body = client
         .post("http://localhost:11434/api/generate")
@@ -67,7 +87,7 @@ async fn generate(query: &str, model: &str) -> Result<Option<String>, reqwest::E
             model: String::from(model),
             prompt: String::from(query),
             stream: false,
-            system: String::from("You are a helpful code assistant who helps people write single line bash scripts for terminal usage. For your information, user is running a Mac OS 13 operating system and zsh shell. Bash code must always be enclosed between ```bash and ``` tags."),
+            system: get_system_prompt(distro, shell),
             context: vec![],
         })
         .send()
@@ -92,6 +112,7 @@ async fn main() {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("query", sub_matches)) => {
+            let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
             let codellama_model: String = match get_codellama_model().await {
                 Ok(c) => match c {
                     Some(model) => model,
@@ -107,19 +128,24 @@ async fn main() {
                     exit(exitcode::UNAVAILABLE)
                 }
             };
-            let query = sub_matches.get_one::<String>("TEXT").unwrap().trim();
-            match generate(query, codellama_model.as_str()).await {
+            let query = sub_matches.get_one::<String>("query").unwrap().trim();
+            let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
+            let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
+            match generate(query, codellama_model.as_str(), distro, shell).await {
                 Ok(res) => match res {
                     Some(output) => {
+                        sp.stop_with_message("".to_string());
                         print!("{}", output);
                         exit(exitcode::OK)
                     }
                     None => {
+                        sp.stop_with_message("".to_string());
                         print!("Unable to get code");
                         exit(exitcode::UNAVAILABLE)
                     }
                 },
                 Err(e) => {
+                    sp.stop_with_message("".to_string());
                     print!("error is {:?}", e);
                     exit(exitcode::UNAVAILABLE)
                 }
