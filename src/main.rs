@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
 use std::process::exit;
 
-const SYSTEM_PROMPT: &str = "You are a helpful code assistant who helps people write single line bash scripts for terminal usage. For your information, user is running {distro} operating system and {shell} shell. Bash code must always be enclosed between ```bash and ``` tags.";
 fn cli() -> Command {
     Command::new("bott")
         .about("Your friendly terminal-hood chatbot")
@@ -134,19 +133,16 @@ async fn main() {
             match generate(query, codellama_model.as_str(), distro, shell).await {
                 Ok(res) => match res {
                     Some(output) => {
-                        sp.stop_with_message("".to_string());
-                        print!("{}", output);
+                        sp.stop_with_message(output);
                         exit(exitcode::OK)
                     }
                     None => {
-                        sp.stop_with_message("".to_string());
-                        print!("Unable to get code");
+                        sp.stop_with_message("Unable to get code".to_string());
                         exit(exitcode::UNAVAILABLE)
                     }
                 },
                 Err(e) => {
-                    sp.stop_with_message("".to_string());
-                    print!("error is {:?}", e);
+                    sp.stop_with_message(format!("error is {:?}", e).to_string());
                     exit(exitcode::UNAVAILABLE)
                 }
             }

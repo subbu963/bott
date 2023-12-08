@@ -62,8 +62,8 @@ function b!() {
         local query="${*/"query"/""}"
         local code_to_exec="bott query -d \"$distro\" -s \"$shell\" -q \"$query\""
 #        echo "$code_to_exec"
-        local x=$(eval "$code_to_exec")
-        echo "$x"
+        local res=$(eval "$code_to_exec")
+        echo "$res"
 #              local in
 #              read in
 #              echo you said $in
