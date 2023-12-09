@@ -51,7 +51,9 @@ function b!() {
     case $subcommand in
       "run")
         local code_to_exec="${*/"run"/""}"
-        code_to_exec="${code_to_exec##*( )}"
+#        code_to_exec="${code_to_exec##*( )}"
+#                echo $code_to_exec
+#                return
         bott_execute_code $code_to_exec
         echo $bott_last_output
         return "$bott_last_exit_code"
@@ -60,14 +62,15 @@ function b!() {
          local distro="$(bott_get_distro)"
          local shell="$(bott_get_shell)"
         local query="${*/"query"/""}"
-        local code_to_exec="bott query -d \"$distro\" -s \"$shell\" -q \"$query\""
-#        echo "$code_to_exec"
+        local code_to_exec="bott query -d \"$distro\" -s \"$shell\" -q \"$query\" -c \"$(pwd)\""
         local res=$(eval "$code_to_exec")
-        echo "$res"
-#              local in
-#              read in
-#              echo you said $in
-              ;;
+        echo "Command: $res"
+        if bott confirm -q "Do you want to run the command?"; then
+            bott_execute_code $res
+            echo $bott_last_output
+            return "$bott_last_exit_code"
+        fi
+        ;;
       *)
         echo "Unknown command"
       ;;

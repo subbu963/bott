@@ -1,8 +1,10 @@
 use clap::{arg, Command};
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use regex::Regex;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
+use std::io::{self, Write};
 use std::process::exit;
 
 fn cli() -> Command {
@@ -27,7 +29,19 @@ fn cli() -> Command {
                     arg!(query: -q --query <QUERY> "query text")
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(cwd: -c --cwd <CWD> "current working directory")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
                 ),
+        )
+        .subcommand(
+            Command::new("confirm").about("Confirm").arg(
+                arg!(query: -q --query <QUERY> "query text")
+                    .required(true)
+                    .value_parser(clap::value_parser!(String)),
+            ),
         )
 }
 #[derive(Deserialize, Debug)]
@@ -70,14 +84,27 @@ async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
     let first = codellama_models.get(0).unwrap().name.clone();
     Ok(Some(first))
 }
-fn get_system_prompt(distro: &str, shell: &str) -> String {
-    return format!("You are a helpful code assistant who helps people write single line bash scripts for terminal usage. For your information, user is running {distro} operating system and {shell} shell. Bash code must always be enclosed between ```bash and ``` tags.", distro=distro, shell=shell);
+fn get_system_prompt(distro: &str, shell: &str, cwd: &str) -> String {
+    return format!(
+        r#"
+    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. 
+    For your information, 
+    Operating system: {distro}
+    Shell: {shell}
+    Current working directory: {cwd}
+    Bash code must always be enclosed between ```bash and ``` tags.
+    "#,
+        distro = distro,
+        shell = shell,
+        cwd = cwd
+    );
 }
 async fn generate(
     query: &str,
     model: &str,
     distro: &str,
     shell: &str,
+    cwd: &str,
 ) -> Result<Option<String>, reqwest::Error> {
     let client = reqwest::Client::new();
     let body = client
@@ -86,7 +113,7 @@ async fn generate(
             model: String::from(model),
             prompt: String::from(query),
             stream: false,
-            system: get_system_prompt(distro, shell),
+            system: get_system_prompt(distro, shell, cwd),
             context: vec![],
         })
         .send()
@@ -100,11 +127,6 @@ async fn generate(
         Some(c) => Ok(Some(String::from(&c["bash_code"]).trim().to_string())),
         None => Ok(None),
     };
-    // println!("matches {}", &matches["bash_code"]);
-    // if matches.is_empty() {
-    //     println!("body is {}", body.response);
-    // }
-    // Ok(Some(body.response))
 }
 #[tokio::main]
 async fn main() {
@@ -130,10 +152,12 @@ async fn main() {
             let query = sub_matches.get_one::<String>("query").unwrap().trim();
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
-            match generate(query, codellama_model.as_str(), distro, shell).await {
+            let cwd = sub_matches.get_one::<String>("cwd").unwrap().trim();
+            match generate(query, codellama_model.as_str(), distro, shell, cwd).await {
                 Ok(res) => match res {
                     Some(output) => {
-                        sp.stop_with_message(output);
+                        sp.stop_with_message("".to_string());
+                        print!("{}", output.trim());
                         exit(exitcode::OK)
                     }
                     None => {
@@ -146,6 +170,21 @@ async fn main() {
                     exit(exitcode::UNAVAILABLE)
                 }
             }
+        }
+        Some(("confirm", sub_matches)) => {
+            let query = sub_matches.get_one::<String>("query").unwrap().trim();
+            match Confirm::with_theme(&ColorfulTheme::default())
+                .with_prompt(query)
+                .default(true)
+                .wait_for_newline(true)
+                .interact_opt()
+                .unwrap()
+            {
+                Some(true) => exit(exitcode::OK),
+                Some(false) => exit(exitcode::UNAVAILABLE),
+                None => println!("Ok, we can start over later"),
+            }
+            exit(exitcode::UNAVAILABLE)
         }
         _ => unreachable!(),
     }
