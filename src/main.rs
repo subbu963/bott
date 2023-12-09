@@ -87,12 +87,11 @@ async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
 fn get_system_prompt(distro: &str, shell: &str, cwd: &str) -> String {
     return format!(
         r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. 
+    You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags.
     For your information, 
     Operating system: {distro}
     Shell: {shell}
     Current working directory: {cwd}
-    Bash code must always be enclosed between ```bash and ``` tags.
     "#,
         distro = distro,
         shell = shell,
