@@ -38,6 +38,21 @@ fn cli() -> Command {
                     .value_parser(clap::value_parser!(String)),
             ),
         )
+        .subcommand(
+            Command::new("debug")
+                .about("Debug")
+                .arg_required_else_help(true)
+                .arg(
+                    arg!(distro: -d --distro <DISTRO> "distro")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                )
+                .arg(
+                    arg!(shell: -s --shell <SHELL> "shell")
+                        .required(true)
+                        .value_parser(clap::value_parser!(String)),
+                ),
+        )
 }
 #[derive(Deserialize, Debug)]
 struct ModelMetadata {
@@ -79,7 +94,7 @@ async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
     let first = codellama_models.get(0).unwrap().name.clone();
     Ok(Some(first))
 }
-fn get_system_prompt(distro: &str, shell: &str) -> String {
+fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
         r#"
     You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags. 
@@ -87,9 +102,33 @@ fn get_system_prompt(distro: &str, shell: &str) -> String {
     For your information, 
     Operating system: {distro}
     Shell: {shell}
+    Last executed command: 
     "#,
         distro = distro,
         shell = shell,
+    );
+}
+
+fn get_debug_system_prompt(distro: &str, shell: &str) -> String {
+    return format!(
+        r#"
+    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. Given an input command and the corresponding output, tell the user why the command is failing.
+    For your information, 
+    Operating system: {distro}
+    Shell: {shell}
+    "#,
+        distro = distro,
+        shell = shell,
+    );
+}
+fn get_debug_prompt(input: &str, output: &str) -> String {
+    return format!(
+        r#"
+    input: {input}
+    output: {output}
+    "#,
+        input = input,
+        output = output,
     );
 }
 struct GenerateOutput {
@@ -102,21 +141,34 @@ async fn generate(
     distro: &str,
     shell: &str,
     context: Vec<usize>,
+    debug: bool,
 ) -> Result<Option<GenerateOutput>, reqwest::Error> {
     let client = reqwest::Client::new();
+    let mut system_prompt = String::from("");
+    if (debug) {
+        system_prompt = get_debug_system_prompt(distro, shell);
+    } else {
+        system_prompt = get_query_system_prompt(distro, shell);
+    }
     let body = client
         .post("http://localhost:11434/api/generate")
         .json(&GenerateRequest {
             model: String::from(model),
             prompt: String::from(query),
             stream: false,
-            system: get_system_prompt(distro, shell),
+            system: system_prompt,
             context: context,
         })
         .send()
         .await?
         .json::<GenerateResponse>()
         .await?;
+    if debug {
+        return Ok(Some(GenerateOutput {
+            answer: String::from(body.response),
+            context: body.context,
+        }));
+    }
     let re = Regex::new(r"```bash(?P<bash_code>[\s\S]*?)```").unwrap();
     // Iterate over and collect all of the matches.
     let matches = re.captures(body.response.as_str());
@@ -128,55 +180,110 @@ async fn generate(
         None => Ok(None),
     };
 }
+async fn check_and_get_codellama() -> String {
+    return match get_codellama_model().await {
+        Ok(c) => match c {
+            Some(model) => model,
+            None => {
+                println!("codellama not installed. Do `ollama pull codellama:13b-instruct`");
+                exit(exitcode::CONFIG)
+            }
+        },
+        Err(_) => {
+            println!("Ollama not running?");
+            exit(exitcode::UNAVAILABLE)
+        }
+    };
+}
+fn get_context() -> Vec<usize> {
+    let context_env = env::var("bott_context").unwrap_or(String::from(""));
+    let context_strings = context_env.split(" ").collect::<Vec<&str>>();
+    let mut context: Vec<usize> = vec![];
+    if !context_strings.get(0).unwrap().is_empty() {
+        context = context_strings
+            .iter()
+            .map(|x| x.parse::<usize>().unwrap())
+            .collect::<Vec<usize>>();
+    }
+    return context;
+}
+fn print_answer_and_context(output: GenerateOutput) {
+    let context = output
+        .context
+        .iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(" ");
+    print!(
+        "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
+        answer = output.answer.trim(),
+        context = context
+    );
+}
 #[tokio::main]
 async fn main() {
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("query", sub_matches)) => {
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
-            let codellama_model: String = match get_codellama_model().await {
-                Ok(c) => match c {
-                    Some(model) => model,
-                    None => {
-                        println!(
-                            "codellama not installed. Do `ollama pull codellama:13b-instruct`"
-                        );
-                        exit(exitcode::CONFIG)
-                    }
-                },
-                Err(_) => {
-                    println!("Ollama not running?");
-                    exit(exitcode::UNAVAILABLE)
-                }
-            };
+            let codellama_model: String = check_and_get_codellama().await;
             let query = sub_matches.get_one::<String>("query").unwrap().trim();
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
-            let context_env = env::var("bott_context").unwrap_or(String::from(""));
-            let context_strings = context_env.split(" ").collect::<Vec<&str>>();
-            let mut context: Vec<usize> = vec![];
-            if !context_strings.get(0).unwrap().is_empty() {
-                context = context_strings
-                    .iter()
-                    .map(|x| x.parse::<usize>().unwrap())
-                    .collect::<Vec<usize>>();
-            }
+            let context = get_context();
 
-            match generate(query, codellama_model.as_str(), distro, shell, context).await {
+            match generate(
+                query,
+                codellama_model.as_str(),
+                distro,
+                shell,
+                context,
+                false,
+            )
+            .await
+            {
                 Ok(res) => match res {
                     Some(output) => {
                         sp.stop_with_message("".to_string());
-                        let context = output
-                            .context
-                            .iter()
-                            .map(|x| x.to_string())
-                            .collect::<Vec<String>>()
-                            .join(" ");
-                        print!(
-                            "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
-                            answer = output.answer.trim(),
-                            context = context
-                        );
+                        print_answer_and_context(output);
+                        exit(exitcode::OK)
+                    }
+                    None => {
+                        sp.stop_with_message("".to_string());
+                        print!("Unable to get code");
+                        exit(exitcode::UNAVAILABLE)
+                    }
+                },
+                Err(e) => {
+                    sp.stop_with_message("".to_string());
+                    print!("error is {:?}", e);
+                    exit(exitcode::UNAVAILABLE)
+                }
+            }
+        }
+        Some(("debug", sub_matches)) => {
+            let codellama_model: String = check_and_get_codellama().await;
+            let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
+            let input = env::var("bott_last_executed_code").unwrap_or(String::from(""));
+            let output = env::var("bott_last_output").unwrap_or(String::from(""));
+            let prompt = get_debug_prompt(input.as_str(), output.as_str());
+            let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
+            let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
+            let context = get_context();
+            match generate(
+                prompt.as_str(),
+                codellama_model.as_str(),
+                distro,
+                shell,
+                context,
+                true,
+            )
+            .await
+            {
+                Ok(res) => match res {
+                    Some(output) => {
+                        sp.stop_with_message("".to_string());
+                        print_answer_and_context(output);
                         exit(exitcode::OK)
                     }
                     None => {
