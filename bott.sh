@@ -1,8 +1,9 @@
-alias bott="/Users/aditya/RustroverProjects/bott/target/debug/bott"
+alias bott_="/Users/aditya/RustroverProjects/bott/target/debug/bott"
 
 export bott_last_executed_code=""
 export bott_last_output=""
 export bott_last_exit_code=0
+export bott_context=""
 
 function bott_execute_code() {
   bott_last_executed_code=$1
@@ -46,7 +47,7 @@ function bott_get_shell(){
   fi
   echo "$_SHELL"
 }
-function b!() {
+function bott!() {
     local subcommand=$1
     case $subcommand in
       "run")
@@ -62,11 +63,18 @@ function b!() {
          local distro="$(bott_get_distro)"
          local shell="$(bott_get_shell)"
         local query="${*/"query"/""}"
-        local code_to_exec="bott query -d \"$distro\" -s \"$shell\" -q \"$query\" -c \"$(pwd)\""
+        local code_to_exec="bott_ query -d \"$distro\" -s \"$shell\" -q \"$query\""
         local res=$(eval "$code_to_exec")
-        echo "Command: $res"
-        if bott confirm -q "Do you want to run the command?"; then
-            bott_execute_code $res
+        if [ $? -ne 0 ]; then
+            echo "Didnt get your question. Please try asking only questions related bash commands"
+            return 1;
+        fi
+        local answer=$(echo "$res" | sed -n 's|.*<ANSWER>\(.*\)</ANSWER>.*|\1|p')
+        local context=$(echo "$res" | sed -n 's|.*<CONTEXT>\(.*\)</CONTEXT>.*|\1|p')
+        bott_context="$context"
+        echo "Command: $answer"
+        if bott_ confirm -q "Do you want to run the command?"; then
+            bott_execute_code $answer
             echo $bott_last_output
             return "$bott_last_exit_code"
         fi

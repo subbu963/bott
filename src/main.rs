@@ -4,7 +4,7 @@ use regex::Regex;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
-use std::io::{self, Write};
+use std::env;
 use std::process::exit;
 
 fn cli() -> Command {
@@ -27,11 +27,6 @@ fn cli() -> Command {
                 )
                 .arg(
                     arg!(query: -q --query <QUERY> "query text")
-                        .required(true)
-                        .value_parser(clap::value_parser!(String)),
-                )
-                .arg(
-                    arg!(cwd: -c --cwd <CWD> "current working directory")
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
                 ),
@@ -84,27 +79,30 @@ async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
     let first = codellama_models.get(0).unwrap().name.clone();
     Ok(Some(first))
 }
-fn get_system_prompt(distro: &str, shell: &str, cwd: &str) -> String {
+fn get_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
         r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags.
+    You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags. 
+    The bash code needs to be compatible with the users operating system and shell.
     For your information, 
     Operating system: {distro}
     Shell: {shell}
-    Current working directory: {cwd}
     "#,
         distro = distro,
         shell = shell,
-        cwd = cwd
     );
+}
+struct GenerateOutput {
+    answer: String,
+    context: Vec<usize>,
 }
 async fn generate(
     query: &str,
     model: &str,
     distro: &str,
     shell: &str,
-    cwd: &str,
-) -> Result<Option<String>, reqwest::Error> {
+    context: Vec<usize>,
+) -> Result<Option<GenerateOutput>, reqwest::Error> {
     let client = reqwest::Client::new();
     let body = client
         .post("http://localhost:11434/api/generate")
@@ -112,8 +110,8 @@ async fn generate(
             model: String::from(model),
             prompt: String::from(query),
             stream: false,
-            system: get_system_prompt(distro, shell, cwd),
-            context: vec![],
+            system: get_system_prompt(distro, shell),
+            context: context,
         })
         .send()
         .await?
@@ -123,7 +121,10 @@ async fn generate(
     // Iterate over and collect all of the matches.
     let matches = re.captures(body.response.as_str());
     return match matches {
-        Some(c) => Ok(Some(String::from(&c["bash_code"]).trim().to_string())),
+        Some(c) => Ok(Some(GenerateOutput {
+            answer: String::from(&c["bash_code"]).trim().to_string(),
+            context: body.context,
+        })),
         None => Ok(None),
     };
 }
@@ -151,21 +152,42 @@ async fn main() {
             let query = sub_matches.get_one::<String>("query").unwrap().trim();
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
-            let cwd = sub_matches.get_one::<String>("cwd").unwrap().trim();
-            match generate(query, codellama_model.as_str(), distro, shell, cwd).await {
+            let context_env = env::var("bott_context").unwrap_or(String::from(""));
+            let context_strings = context_env.split(" ").collect::<Vec<&str>>();
+            let mut context: Vec<usize> = vec![];
+            if !context_strings.get(0).unwrap().is_empty() {
+                context = context_strings
+                    .iter()
+                    .map(|x| x.parse::<usize>().unwrap())
+                    .collect::<Vec<usize>>();
+            }
+
+            match generate(query, codellama_model.as_str(), distro, shell, context).await {
                 Ok(res) => match res {
                     Some(output) => {
                         sp.stop_with_message("".to_string());
-                        print!("{}", output.trim());
+                        let context = output
+                            .context
+                            .iter()
+                            .map(|x| x.to_string())
+                            .collect::<Vec<String>>()
+                            .join(" ");
+                        print!(
+                            "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
+                            answer = output.answer.trim(),
+                            context = context
+                        );
                         exit(exitcode::OK)
                     }
                     None => {
-                        sp.stop_with_message("Unable to get code".to_string());
+                        sp.stop_with_message("".to_string());
+                        print!("Unable to get code");
                         exit(exitcode::UNAVAILABLE)
                     }
                 },
                 Err(e) => {
-                    sp.stop_with_message(format!("error is {:?}", e).to_string());
+                    sp.stop_with_message("".to_string());
+                    print!("error is {:?}", e);
                     exit(exitcode::UNAVAILABLE)
                 }
             }
