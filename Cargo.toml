@@ -14,3 +14,7 @@ tokio = { version = "1.34.0", features = ["full"] }
 regex = "1.10.2"
 spinners = "4.1.1"
 dialoguer = "0.11.0"
+confy = { version = "0.5.1", features = ["yaml_conf"], default-features = false }
+serde_derive = "1.0.193"
+keyring = "2.1.0"
+users = "0.11.0"

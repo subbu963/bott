@@ -96,7 +96,9 @@ function bott!() {
 		echo "Answer: $answer"
 		;;
 	*)
-		echo "Unknown command"
+	  echo "command is $*"
+	  local code_to_exec="bott_ $*"
+		local res=$(eval "$code_to_exec")
 		;;
 	esac
 }

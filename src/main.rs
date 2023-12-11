@@ -1,12 +1,19 @@
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
+use keyring::Entry;
 use regex::Regex;
 use reqwest;
-use serde::{Deserialize, Serialize};
+use serde_derive::{Deserialize, Serialize};
 use spinners::{Spinner, Spinners};
 use std::env;
 use std::process::exit;
+use users::{get_current_uid, get_user_by_uid};
 
+#[derive(Default, Debug, Serialize, Deserialize)]
+struct MyConfig {
+    version: u8,
+    api_key: String,
+}
 fn cli() -> Command {
     Command::new("bott")
         .about("Your friendly terminal-hood chatbot")
@@ -52,6 +59,23 @@ fn cli() -> Command {
                         .required(true)
                         .value_parser(clap::value_parser!(String)),
                 ),
+        )
+        .subcommand(
+            Command::new("config").about("Config").subcommand(
+                Command::new("set")
+                    .about("Set")
+                    .arg_required_else_help(true)
+                    .arg(
+                        arg!(key: -k --key <KEY> "key")
+                            .required(true)
+                            .value_parser(clap::value_parser!(String)),
+                    )
+                    .arg(
+                        arg!(value: -v --value <VALUE> "value")
+                            .required(true)
+                            .value_parser(clap::value_parser!(String)),
+                    ),
+            ),
         )
 }
 #[derive(Deserialize, Debug)]
@@ -220,6 +244,62 @@ fn print_answer_and_context(output: GenerateOutput) {
         context = context
     );
 }
+struct Keyring {
+    user: String,
+    namespace: String,
+}
+
+enum KeyringOperation {
+    get,
+    set,
+    delete,
+}
+impl Keyring {
+    pub fn new(&mut self, namespace: &str) {
+        let current_user = get_user_by_uid(get_current_uid()).unwrap();
+        self.user = current_user.name().to_string_lossy().to_string();
+        self.namespace = String::from(namespace);
+    }
+    fn operate(
+        &self,
+        key: &str,
+        value: Option<&str>,
+        operation: KeyringOperation,
+    ) -> Result<Option<String>, keyring::Error> {
+        let entry = Entry::new(
+            format!("bott_cli_service:{}:{}", self.namespace, key).as_str(),
+            self.user.as_ref(),
+        )?;
+        return match operation {
+            KeyringOperation::get => {
+                let password = entry.get_password()?;
+                Ok(Some(password))
+            }
+            KeyringOperation::set => {
+                let val = value.unwrap();
+                entry.set_password(val)?;
+                Ok(None)
+            }
+            KeyringOperation::delete => {
+                entry.delete_password()?;
+                Ok(None)
+            }
+        };
+    }
+    pub fn get(&self, key: &str) -> Result<Option<String>, keyring::Error> {
+        let password = self.operate(key, None, KeyringOperation::get)?;
+        Ok(password)
+    }
+    pub fn set(&self, key: &str, value: &str) -> Result<(), keyring::Error> {
+        self.operate(key, Some(value), KeyringOperation::set)?;
+        Ok(())
+    }
+    pub fn delete(&self, key: &str) -> Result<(), keyring::Error> {
+        self.operate(key, None, KeyringOperation::delete)?;
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let matches = cli().get_matches();
@@ -313,6 +393,17 @@ async fn main() {
                 None => println!("Ok, we can start over later"),
             }
             exit(exitcode::UNAVAILABLE)
+        }
+        Some(("config", sub_matches)) => {
+            let config_command = sub_matches.subcommand().unwrap_or(("get", sub_matches));
+            match config_command {
+                ("set", sub_matches) => {
+                    let key = sub_matches.get_one::<String>("key").unwrap().trim();
+                    let value = sub_matches.get_one::<String>("value").unwrap().trim();
+                    print!("key {:?}, value {:?}", key, value);
+                }
+                _ => unreachable!(),
+            }
         }
         _ => unreachable!(),
     }
