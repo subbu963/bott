@@ -9,10 +9,18 @@ use std::env;
 use std::process::exit;
 use users::{get_current_uid, get_user_by_uid};
 
-#[derive(Default, Debug, Serialize, Deserialize)]
-struct MyConfig {
-    version: u8,
-    api_key: String,
+#[derive(Debug, Serialize, Deserialize)]
+struct BottConfig {
+    version: String,
+    llm: String,
+}
+impl Default for BottConfig {
+    fn default() -> Self {
+        Self {
+            version: String::from("0.1.0"),
+            llm: String::from("ollama"),
+        }
+    }
 }
 fn cli() -> Command {
     Command::new("bott")
@@ -400,7 +408,13 @@ async fn main() {
                 ("set", sub_matches) => {
                     let key = sub_matches.get_one::<String>("key").unwrap().trim();
                     let value = sub_matches.get_one::<String>("value").unwrap().trim();
+
                     print!("key {:?}, value {:?}", key, value);
+                    let cfg: BottConfig = confy::load("bott-cli-config", None).unwrap();
+                    dbg!(
+                        cfg,
+                        confy::get_configuration_file_path("bott-cli-config", None)
+                    );
                 }
                 _ => unreachable!(),
             }
