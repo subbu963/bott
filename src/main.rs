@@ -112,7 +112,7 @@ fn get_query_system_prompt(distro: &str, shell: &str) -> String {
 fn get_debug_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
         r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. Given an input command and the corresponding output, tell the user why the command is failing.
+    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. Given an input command and the corresponding output, tell the user why the command is failing. Write your answer in a single line with newlines using `\n` and double quoutes escaped
     For your information, 
     Operating system: {distro}
     Shell: {shell}
@@ -269,7 +269,7 @@ async fn main() {
             let prompt = get_debug_prompt(input.as_str(), output.as_str());
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
-            let context = get_context();
+            let context = vec![];
             match generate(
                 prompt.as_str(),
                 codellama_model.as_str(),
