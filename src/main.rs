@@ -10,7 +10,6 @@ use crate::llm::prelude::{
 };
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
-use reqwest;
 use spinners::{Spinner, Spinners};
 use std::env;
 use std::process::exit;
@@ -102,18 +101,11 @@ async fn main() {
             )
             .await
             {
-                Ok(res) => match res {
-                    Some(output) => {
-                        sp.stop_with_message("".to_string());
-                        print_answer_and_context(output);
-                        exit(exitcode::OK)
-                    }
-                    None => {
-                        sp.stop_with_message("".to_string());
-                        print!("Unable to get code");
-                        exit(exitcode::UNAVAILABLE)
-                    }
-                },
+                Ok(output) => {
+                    sp.stop_with_message("".to_string());
+                    print_answer_and_context(output);
+                    exit(exitcode::OK)
+                }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
                     print!("error is {:?}", e);
@@ -140,18 +132,11 @@ async fn main() {
             )
             .await
             {
-                Ok(res) => match res {
-                    Some(output) => {
-                        sp.stop_with_message("".to_string());
-                        print_answer_and_context(output);
-                        exit(exitcode::OK)
-                    }
-                    None => {
-                        sp.stop_with_message("".to_string());
-                        print!("Unable to get code");
-                        exit(exitcode::UNAVAILABLE)
-                    }
-                },
+                Ok(output) => {
+                    sp.stop_with_message("".to_string());
+                    print_answer_and_context(output);
+                    exit(exitcode::OK)
+                }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
                     print!("error is {:?}", e);

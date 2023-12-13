@@ -1,4 +1,11 @@
 #[derive(Debug)]
+pub enum BottOllamaError {
+    NotRunning,
+    InvalidResponse,
+    CodeLlamaUnavailable,
+    UnableToGetResponse,
+}
+#[derive(Debug)]
 pub enum BottError {
     ConfigPathErr,
     ConfigLoadErr,
@@ -6,4 +13,5 @@ pub enum BottError {
     KeychainGetErr,
     KeychainSetErr,
     KeychainDeleteErr,
+    OllamaErr(BottOllamaError),
 }

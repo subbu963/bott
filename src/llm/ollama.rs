@@ -1,3 +1,5 @@
+use crate::errors::{BottError, BottOllamaError};
+use crate::result::BottResult;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use std::env;
@@ -26,11 +28,17 @@ pub struct GenerateResponse {
     response: String,
     context: Vec<usize>,
 }
-pub async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
-    let body = reqwest::get("http://localhost:11434/api/tags")
-        .await?
-        .json::<ModelTags>()
-        .await?;
+pub async fn get_codellama_model() -> BottResult<String> {
+    let body: ModelTags;
+    if let Ok(req) = reqwest::get("http://localhost:11434/api/tags").await {
+        if let Ok(_body) = req.json::<ModelTags>().await {
+            body = _body;
+        } else {
+            return Err(BottError::OllamaErr(BottOllamaError::InvalidResponse));
+        }
+    } else {
+        return Err(BottError::OllamaErr(BottOllamaError::NotRunning));
+    }
     let mut codellama_models = Vec::from_iter(
         body.models
             .iter()
@@ -38,10 +46,10 @@ pub async fn get_codellama_model() -> Result<Option<String>, reqwest::Error> {
     );
     codellama_models.sort_by(|a, b| b.size.cmp(&a.size));
     if codellama_models.is_empty() {
-        return Ok(None);
+        return Err(BottError::OllamaErr(BottOllamaError::CodeLlamaUnavailable));
     }
     let first = codellama_models.get(0).unwrap().name.clone();
-    Ok(Some(first))
+    Ok(first)
 }
 pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
@@ -91,7 +99,7 @@ pub async fn generate(
     shell: &str,
     context: Vec<usize>,
     debug: bool,
-) -> Result<Option<GenerateOutput>, reqwest::Error> {
+) -> BottResult<GenerateOutput> {
     let client = reqwest::Client::new();
     let mut system_prompt = String::from("");
     if (debug) {
@@ -99,7 +107,8 @@ pub async fn generate(
     } else {
         system_prompt = get_query_system_prompt(distro, shell);
     }
-    let body = client
+    let body: GenerateResponse;
+    if let Ok(req) = client
         .post("http://localhost:11434/api/generate")
         .json(&GenerateRequest {
             model: String::from(model),
@@ -109,37 +118,50 @@ pub async fn generate(
             context: context,
         })
         .send()
-        .await?
-        .json::<GenerateResponse>()
-        .await?;
-    if debug {
-        return Ok(Some(GenerateOutput {
+        .await
+    {
+        if let Ok(_body) = req.json::<GenerateResponse>().await {
+            body = _body;
+        } else {
+            return Err(BottError::OllamaErr(BottOllamaError::InvalidResponse));
+        }
+    } else {
+        return Err(BottError::OllamaErr(BottOllamaError::NotRunning));
+    }
+    if (debug) {
+        return Ok(GenerateOutput {
             answer: String::from(body.response),
             context: body.context,
-        }));
+        });
     }
     let re = Regex::new(r"```bash(?P<bash_code>[\s\S]*?)```").unwrap();
     // Iterate over and collect all of the matches.
     let matches = re.captures(body.response.as_str());
     return match matches {
-        Some(c) => Ok(Some(GenerateOutput {
+        Some(c) => Ok(GenerateOutput {
             answer: String::from(&c["bash_code"]).trim().to_string(),
             context: body.context,
-        })),
-        None => Ok(None),
+        }),
+        None => Err(BottError::OllamaErr(BottOllamaError::UnableToGetResponse)),
     };
 }
 pub async fn check_and_get_codellama() -> String {
     return match get_codellama_model().await {
-        Ok(c) => match c {
-            Some(model) => model,
-            None => {
-                println!("codellama not installed. Do `ollama pull codellama:13b-instruct`");
-                exit(exitcode::CONFIG)
-            }
-        },
-        Err(_) => {
-            println!("Ollama not running?");
+        Ok(model) => model,
+        Err(BottError::OllamaErr(BottOllamaError::NotRunning)) => {
+            print!("Ollama not running?");
+            exit(exitcode::UNAVAILABLE)
+        }
+        Err(BottError::OllamaErr(BottOllamaError::InvalidResponse)) => {
+            print!("Ollama sent invalid response");
+            exit(exitcode::UNAVAILABLE)
+        }
+        Err(BottError::OllamaErr(BottOllamaError::CodeLlamaUnavailable)) => {
+            print!("codellama not installed. Do `ollama pull codellama:13b-instruct`");
+            exit(exitcode::UNAVAILABLE)
+        }
+        Err(e) => {
+            print!("Unexpected error: {:?}", e);
             exit(exitcode::UNAVAILABLE)
         }
     };
