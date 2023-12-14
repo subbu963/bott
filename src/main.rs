@@ -4,7 +4,8 @@ mod keychain;
 mod llm;
 mod result;
 
-use crate::config::{get_bott_config, BottConfig};
+use crate::config::BottConfig;
+use crate::errors::BottError;
 use crate::llm::prelude::{
     check_and_get_codellama, generate, get_context, get_debug_prompt, print_answer_and_context,
 };
@@ -61,21 +62,43 @@ fn cli() -> Command {
                 ),
         )
         .subcommand(
-            Command::new("config").about("Config").subcommand(
-                Command::new("set")
-                    .about("Set")
-                    .arg_required_else_help(true)
-                    .arg(
-                        arg!(key: -k --key <KEY> "key")
-                            .required(true)
-                            .value_parser(clap::value_parser!(String)),
-                    )
-                    .arg(
-                        arg!(value: -v --value <VALUE> "value")
-                            .required(true)
-                            .value_parser(clap::value_parser!(String)),
-                    ),
-            ),
+            Command::new("config")
+                .about("Config")
+                .subcommand(
+                    Command::new("get")
+                        .about("Get")
+                        .arg_required_else_help(true)
+                        .arg(
+                            arg!(key: -k --key <KEY> "key")
+                                .required(true)
+                                .value_parser(clap::value_parser!(String)),
+                        ),
+                )
+                .subcommand(
+                    Command::new("set")
+                        .about("Set")
+                        .arg_required_else_help(true)
+                        .arg(
+                            arg!(key: -k --key <KEY> "key")
+                                .required(true)
+                                .value_parser(clap::value_parser!(String)),
+                        )
+                        .arg(
+                            arg!(value: -v --value <VALUE> "value")
+                                .required(true)
+                                .value_parser(clap::value_parser!(String)),
+                        ),
+                )
+                .subcommand(
+                    Command::new("delete")
+                        .about("deletee")
+                        .arg_required_else_help(true)
+                        .arg(
+                            arg!(key: -k --key <KEY> "key")
+                                .required(true)
+                                .value_parser(clap::value_parser!(String)),
+                        ),
+                ),
         )
 }
 
@@ -166,9 +189,52 @@ async fn main() {
                     let key = sub_matches.get_one::<String>("key").unwrap().trim();
                     let value = sub_matches.get_one::<String>("value").unwrap().trim();
 
-                    print!("key {:?}, value {:?}", key, value);
-                    let cfg: BottConfig = get_bott_config().unwrap();
-                    dbg!(cfg,);
+                    let mut config: BottConfig = match BottConfig::load() {
+                        Ok(c) => c,
+                        Err(BottError::ConfigLoadErr) => {
+                            print!("Unable to load config");
+                            exit(exitcode::UNAVAILABLE)
+                        }
+                        Err(_) => unimplemented!(),
+                    };
+                    config.set_key(key, value);
+
+                    if let Err(_) = config.save() {
+                        print!("Unable to save config");
+                        exit(exitcode::UNAVAILABLE)
+                    }
+                }
+                ("get", sub_matches) => {
+                    let key = sub_matches.get_one::<String>("key").unwrap().trim();
+
+                    let mut config: BottConfig = match BottConfig::load() {
+                        Ok(c) => c,
+                        Err(BottError::ConfigLoadErr) => {
+                            print!("Unable to load config");
+                            exit(exitcode::UNAVAILABLE)
+                        }
+                        Err(_) => unimplemented!(),
+                    };
+                    print!("{}", config.get_key(key));
+                    exit(exitcode::OK);
+                }
+                ("delete", sub_matches) => {
+                    let key = sub_matches.get_one::<String>("key").unwrap().trim();
+
+                    let mut config: BottConfig = match BottConfig::load() {
+                        Ok(c) => c,
+                        Err(BottError::ConfigLoadErr) => {
+                            print!("Unable to load config");
+                            exit(exitcode::UNAVAILABLE)
+                        }
+                        Err(_) => unimplemented!(),
+                    };
+                    config.delete_key(key);
+                    if let Err(_) = config.save() {
+                        print!("Unable to save config");
+                        exit(exitcode::UNAVAILABLE)
+                    }
+                    exit(exitcode::OK);
                 }
                 _ => unreachable!(),
             }

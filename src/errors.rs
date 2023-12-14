@@ -9,6 +9,7 @@ pub enum BottOllamaError {
 pub enum BottError {
     ConfigPathErr,
     ConfigLoadErr,
+    ConfigStoreErr,
     KeychainOperateErr,
     KeychainGetErr,
     KeychainSetErr,
