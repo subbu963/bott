@@ -3,17 +3,24 @@ use crate::result::BottResult;
 use directories::UserDirs;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
-
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OllamaOptions {}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct OpenaiOptions {}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BottConfig {
     version: String,
     llm: String,
+    ollama_options: Option<OllamaOptions>,
+    openai_options: Option<OpenaiOptions>,
 }
 impl Default for BottConfig {
     fn default() -> Self {
         Self {
             version: String::from("0.1.0"),
             llm: String::from("ollama"),
+            ollama_options: None,
+            openai_options: None,
         }
     }
 }
