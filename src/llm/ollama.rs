@@ -145,27 +145,6 @@ pub async fn generate(
         None => Err(BottError::OllamaErr(BottOllamaError::UnableToGetResponse)),
     };
 }
-pub async fn check_and_get_codellama() -> String {
-    return match get_codellama_model().await {
-        Ok(model) => model,
-        Err(BottError::OllamaErr(BottOllamaError::NotRunning)) => {
-            print!("Ollama not running?");
-            exit(exitcode::UNAVAILABLE)
-        }
-        Err(BottError::OllamaErr(BottOllamaError::InvalidResponse)) => {
-            print!("Ollama sent invalid response");
-            exit(exitcode::UNAVAILABLE)
-        }
-        Err(BottError::OllamaErr(BottOllamaError::CodeLlamaUnavailable)) => {
-            print!("codellama not installed. Do `ollama pull codellama:13b-instruct`");
-            exit(exitcode::UNAVAILABLE)
-        }
-        Err(e) => {
-            print!("Unexpected error: {:?}", e);
-            exit(exitcode::UNAVAILABLE)
-        }
-    };
-}
 pub fn get_context() -> Vec<usize> {
     let context_env = env::var("bott_context").unwrap_or(String::from(""));
     let context_strings = context_env.split(" ").collect::<Vec<&str>>();

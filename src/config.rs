@@ -1,8 +1,10 @@
 use crate::errors::BottError;
+use crate::keychain::Keychain;
 use crate::result::BottResult;
 use directories::UserDirs;
 use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OllamaOptions {}
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -57,17 +59,29 @@ impl BottConfig {
             }
         };
     }
-    pub fn set_key(&mut self, key: &str, value: &str) {
+    pub fn set_key(&mut self, key: &str, value: &str) -> BottResult<()> {
+        print!("key {}", key);
         match key {
             "llm" => {
                 self.llm = String::from(value);
             }
+            "openai:api_key" => {
+                let (namespace, key) = key.split_once(":").unwrap();
+                let keychain = Keychain::load(namespace);
+                keychain.set(key, value)?;
+            }
             _ => unimplemented!(),
         };
+        Ok(())
     }
-    pub fn get_key(&mut self, key: &str) -> String {
+    pub fn get_key(&mut self, key: &str) -> BottResult<Option<String>> {
         return match key {
-            "llm" => self.llm.clone(),
+            "llm" => Ok(Some(self.llm.clone())),
+            "openai:api_key" => {
+                let (namespace, key) = key.split_once(":").unwrap();
+                let keychain = Keychain::load(namespace);
+                Ok(keychain.get(key)?)
+            }
             _ => unimplemented!(),
         };
     }

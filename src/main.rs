@@ -5,9 +5,8 @@ mod llm;
 mod result;
 
 use crate::config::BottConfig;
-use crate::errors::BottError;
 use crate::llm::prelude::{
-    check_and_get_codellama, generate, get_context, get_debug_prompt, print_answer_and_context,
+    generate, get_codellama_model, get_context, get_debug_prompt, print_answer_and_context,
 };
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -108,7 +107,14 @@ async fn main() {
     match matches.subcommand() {
         Some(("query", sub_matches)) => {
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
-            let codellama_model: String = check_and_get_codellama().await;
+            let codellama_model: String = match get_codellama_model().await {
+                Ok(output) => output,
+                Err(e) => {
+                    sp.stop_with_message("".to_string());
+                    print!("{}", e.to_string());
+                    exit(exitcode::UNAVAILABLE);
+                }
+            };
             let query = sub_matches.get_one::<String>("query").unwrap().trim();
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
@@ -131,14 +137,21 @@ async fn main() {
                 }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
-                    print!("error is {:?}", e);
-                    exit(exitcode::UNAVAILABLE)
+                    print!("{}", e.to_string());
+                    exit(exitcode::UNAVAILABLE);
                 }
             }
         }
         Some(("debug", sub_matches)) => {
-            let codellama_model: String = check_and_get_codellama().await;
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
+            let codellama_model: String = match get_codellama_model().await {
+                Ok(output) => output,
+                Err(e) => {
+                    sp.stop_with_message("".to_string());
+                    print!("{}", e.to_string());
+                    exit(exitcode::UNAVAILABLE);
+                }
+            };
             let input = env::var("bott_last_executed_code").unwrap_or(String::from(""));
             let output = env::var("bott_last_output").unwrap_or(String::from(""));
             let prompt = get_debug_prompt(input.as_str(), output.as_str());
@@ -162,8 +175,8 @@ async fn main() {
                 }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
-                    print!("error is {:?}", e);
-                    exit(exitcode::UNAVAILABLE)
+                    print!("{}", e.to_string());
+                    exit(exitcode::UNAVAILABLE);
                 }
             }
         }
@@ -191,17 +204,16 @@ async fn main() {
 
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
-                        Err(BottError::ConfigLoadErr) => {
-                            print!("Unable to load config");
-                            exit(exitcode::UNAVAILABLE)
+                        Err(e) => {
+                            print!("{}", e.to_string());
+                            exit(exitcode::UNAVAILABLE);
                         }
-                        Err(_) => unimplemented!(),
                     };
                     config.set_key(key, value);
 
-                    if let Err(_) = config.save() {
-                        print!("Unable to save config");
-                        exit(exitcode::UNAVAILABLE)
+                    if let Err(e) = config.save() {
+                        print!("{}", e.to_string());
+                        exit(exitcode::UNAVAILABLE);
                     }
                 }
                 ("get", sub_matches) => {
@@ -209,30 +221,44 @@ async fn main() {
 
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
-                        Err(BottError::ConfigLoadErr) => {
-                            print!("Unable to load config");
-                            exit(exitcode::UNAVAILABLE)
+                        Err(e) => {
+                            print!("{}", e.to_string());
+                            exit(exitcode::UNAVAILABLE);
                         }
-                        Err(_) => unimplemented!(),
                     };
-                    print!("{}", config.get_key(key));
-                    exit(exitcode::OK);
+                    match config.get_key(key) {
+                        Ok(k) => {
+                            match k {
+                                Some(_k) => {
+                                    print!("{}", _k);
+                                    exit(exitcode::OK);
+                                }
+                                None => {
+                                    print!("key {} not found", key);
+                                    exit(exitcode::UNAVAILABLE);
+                                }
+                            };
+                        }
+                        Err(e) => {
+                            print!("{}", e.to_string());
+                            exit(exitcode::UNAVAILABLE);
+                        }
+                    }
                 }
                 ("delete", sub_matches) => {
                     let key = sub_matches.get_one::<String>("key").unwrap().trim();
 
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
-                        Err(BottError::ConfigLoadErr) => {
-                            print!("Unable to load config");
-                            exit(exitcode::UNAVAILABLE)
+                        Err(e) => {
+                            print!("{}", e.to_string());
+                            exit(exitcode::UNAVAILABLE);
                         }
-                        Err(_) => unimplemented!(),
                     };
                     config.delete_key(key);
-                    if let Err(_) = config.save() {
-                        print!("Unable to save config");
-                        exit(exitcode::UNAVAILABLE)
+                    if let Err(e) = config.save() {
+                        print!("{}", e.to_string());
+                        exit(exitcode::UNAVAILABLE);
                     }
                     exit(exitcode::OK);
                 }

@@ -12,8 +12,11 @@ function bott_execute_code() {
 	bott_last_output=$(eval "$1" 2>&1)
 	bott_last_exit_code=$?
 
-	[ $bott_last_exit_code -ne 0 ]
-	bott_last_output="${bott_last_output/"(eval):1: "/""}"
+	if [ $bott_last_exit_code -ne 0 ]; then
+		echo "in non zero exit code"
+		bott_last_output="${bott_last_output/"(eval):1: "/""}"
+	fi
+	return $bott_last_exit_code
 }
 function bott_get_distro() {
 	local d=""
@@ -63,14 +66,14 @@ function bott!() {
 		local shell="$(bott_get_shell)"
 		local query="${*/"query"/""}"
 		local code_to_exec="bott_ query -d \"$distro\" -s \"$shell\" -q \"$query\""
-		local res=$(eval "$code_to_exec")
-		bott_last_response="$res"
-		if [ $? -ne 0 ]; then
-			echo "Didnt get your question. Please try asking only questions related bash commands"
-			return 1
-		fi
+		local res=$(eval "$code_to_exec" 2>&1)
 		local answer=$(echo "$res" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
 		local context=$(echo "$res" | awk -v RS="<CONTEXT>" -v ORS="" 'NR>1{gsub(/<\/CONTEXT>.*/, ""); print}')
+		if [ -z $answer ]; then
+			echo "$res"
+			return 1
+		fi
+		bott_last_response="$res"
 		bott_context="$context"
 		echo "Answer: $answer"
 		if bott_ confirm -q "Do you want to run the command?"; then

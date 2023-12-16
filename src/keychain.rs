@@ -14,10 +14,14 @@ enum KeychainOperation {
     Delete,
 }
 impl Keychain {
-    pub fn new(&mut self, namespace: &str) {
+    pub fn load(namespace: &str) -> Self {
         let current_user = get_user_by_uid(get_current_uid()).unwrap();
-        self.user = current_user.name().to_string_lossy().to_string();
-        self.namespace = String::from(namespace);
+        let user = current_user.name().to_string_lossy().to_string();
+        let namespace = String::from(namespace);
+        Self {
+            user: user,
+            namespace: namespace,
+        }
     }
     fn operate(
         &self,
@@ -30,7 +34,7 @@ impl Keychain {
             self.user.as_ref(),
         ) {
             Ok(e) => e,
-            Err(_) => return Err(BottError::KeychainOperateErr),
+            Err(_) => return Err(BottError::KeychainLoadErr),
         };
         return match operation {
             KeychainOperation::Get => {
