@@ -6,7 +6,7 @@ mod result;
 
 use crate::config::BottConfig;
 use crate::llm::prelude::{
-    generate, get_codellama_model, get_context, get_debug_prompt, print_answer_and_context,
+    generate, get_context, get_debug_prompt, get_model, print_answer_and_context,
 };
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -107,7 +107,7 @@ async fn main() {
     match matches.subcommand() {
         Some(("query", sub_matches)) => {
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
-            let codellama_model: String = match get_codellama_model().await {
+            let model: String = match get_model().await {
                 Ok(output) => output,
                 Err(e) => {
                     sp.stop_with_message("".to_string());
@@ -120,16 +120,7 @@ async fn main() {
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
             let context = get_context();
 
-            match generate(
-                query,
-                codellama_model.as_str(),
-                distro,
-                shell,
-                context,
-                false,
-            )
-            .await
-            {
+            match generate(query, model.as_str(), distro, shell, context, false).await {
                 Ok(output) => {
                     sp.stop_with_message("".to_string());
                     print_answer_and_context(output);
@@ -144,7 +135,7 @@ async fn main() {
         }
         Some(("debug", sub_matches)) => {
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
-            let codellama_model: String = match get_codellama_model().await {
+            let model: String = match get_model().await {
                 Ok(output) => output,
                 Err(e) => {
                     sp.stop_with_message("".to_string());
@@ -152,15 +143,15 @@ async fn main() {
                     exit(exitcode::UNAVAILABLE);
                 }
             };
-            let input = env::var("bott_last_executed_code").unwrap_or(String::from(""));
-            let output = env::var("bott_last_output").unwrap_or(String::from(""));
+            let input = env::var("bott_last_run_executed_code").unwrap_or(String::from(""));
+            let output = env::var("bott_last_run_output").unwrap_or(String::from(""));
             let prompt = get_debug_prompt(input.as_str(), output.as_str());
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
             let context = vec![];
             match generate(
                 prompt.as_str(),
-                codellama_model.as_str(),
+                model.as_str(),
                 distro,
                 shell,
                 context,

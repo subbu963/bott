@@ -4,7 +4,7 @@ use std::fmt;
 pub enum BottOllamaError {
     NotRunning,
     InvalidResponse,
-    CodeLlamaUnavailable,
+    ModelUnavailable(String),
     UnableToGetResponse,
     UnknownError(String),
 }
@@ -33,10 +33,9 @@ impl fmt::Display for BottError {
             BottError::OllamaErr(BottOllamaError::InvalidResponse) => {
                 write!(f, "Ollama sent invalid response")
             }
-            BottError::OllamaErr(BottOllamaError::CodeLlamaUnavailable) => write!(
-                f,
-                "codellama not installed. Do `ollama pull codellama:13b-instruct`"
-            ),
+            BottError::OllamaErr(BottOllamaError::ModelUnavailable(s)) => {
+                write!(f, "model not installed. Do `ollama pull {}`", s)
+            }
             BottError::OllamaErr(BottOllamaError::UnableToGetResponse) => {
                 write!(f, "Ollama sent invalid response")
             }

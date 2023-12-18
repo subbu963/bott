@@ -6,6 +6,10 @@ function bott_init() {
 	export bott_last_run_exit_code=0
 	export bott_last_query_response=""
 	export bott_last_query_exit_code=0
+	export bott_last_debug_response=""
+	export bott_last_debug_exit_code=0
+	export bott_last_other_response=""
+	export bott_last_other_exit_code=0
 	export bott_context=""
 }
 function bott_execute_code() {
@@ -66,16 +70,16 @@ function bott!() {
 		local shell="$(bott_get_shell)"
 		local query="${*/"query"/""}"
 		local code_to_exec="bott_ query -d \"$distro\" -s \"$shell\" -q \"$query\""
-		bott_last_query_response=$(eval "$code_to_exec" 2>&1)
+		bott_last_query_response=$(eval "$code_to_exec")
 		bott_last_query_exit_code=$?
 		if [ $bott_last_query_exit_code -ne 0 ]; then
-			echo "$res"
+			echo "$bott_last_query_response"
 			return $bott_last_query_exit_code
 		fi
-		local answer=$(echo "$res" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
-		local context=$(echo "$res" | awk -v RS="<CONTEXT>" -v ORS="" 'NR>1{gsub(/<\/CONTEXT>.*/, ""); print}')
+		local answer=$(echo "$bott_last_query_response" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
+		local context=$(echo "$bott_last_query_response" | awk -v RS="<CONTEXT>" -v ORS="" 'NR>1{gsub(/<\/CONTEXT>.*/, ""); print}')
 		if [ -z $answer ]; then
-			echo "$res"
+			echo "Didnt get your question. Please try asking only questions related to bash commands"
 			return 1
 		fi
 		bott_context="$context"
@@ -94,18 +98,21 @@ function bott!() {
 		local distro="$(bott_get_distro)"
 		local shell="$(bott_get_shell)"
 		local code_to_exec="bott_ debug -d \"$distro\" -s \"$shell\""
-		local res=$(eval "$code_to_exec")
-		if [ $? -ne 0 ]; then
-			echo "Didnt get your question. Please try asking only questions related bash commands"
+		bott_last_debug_response=$(eval "$code_to_exec")
+		bott_last_debug_exit_code=$?
+		if [ $bott_last_debug_exit_code -ne 0 ]; then
+			echo "Didnt get your question. Please try asking only questions related to bash commands"
 			return 1
 		fi
-		local answer=$(echo "$res" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
+		local answer=$(echo "$bott_last_debug_response" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
 		echo "Answer: $answer"
 		;;
 	*)
-		echo "command is $*"
 		local code_to_exec="bott_ $*"
-		local res=$(eval "$code_to_exec")
+		bott_last_other_response=$(eval "$code_to_exec" 2>&1)
+		bott_last_other_exit_code=$?
+		echo "$bott_last_other_response"
+		return $bott_last_other_exit_code
 		;;
 	esac
 }

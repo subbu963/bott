@@ -6,7 +6,9 @@ use serde_derive::{Deserialize, Serialize};
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OllamaOptions {}
+pub struct OllamaOptions {
+    model: String,
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OpenaiOptions {}
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -21,7 +23,9 @@ impl Default for BottConfig {
         Self {
             version: String::from("0.1.0"),
             llm: String::from("ollama"),
-            ollama_options: None,
+            ollama_options: Some(OllamaOptions {
+                model: String::from("codellama:7b-instruct"),
+            }),
             openai_options: None,
         }
     }
@@ -60,10 +64,15 @@ impl BottConfig {
         };
     }
     pub fn set_key(&mut self, key: &str, value: &str) -> BottResult<()> {
-        print!("key {}", key);
         match key {
             "llm" => {
                 self.llm = String::from(value);
+            }
+            "ollama:model" => {
+                self.ollama_options = Some(OllamaOptions {
+                    model: value.to_string(),
+                });
+                self.save()?;
             }
             "openai:api_key" => {
                 let (namespace, key) = key.split_once(":").unwrap();
@@ -77,6 +86,12 @@ impl BottConfig {
     pub fn get_key(&mut self, key: &str) -> BottResult<Option<String>> {
         return match key {
             "llm" => Ok(Some(self.llm.clone())),
+            "ollama:model" => {
+                if let Some(options) = self.ollama_options.clone() {
+                    return Ok(Some(options.model));
+                }
+                Ok(None)
+            }
             "openai:api_key" => {
                 let (namespace, key) = key.split_once(":").unwrap();
                 let keychain = Keychain::load(namespace);
@@ -85,8 +100,18 @@ impl BottConfig {
             _ => unimplemented!(),
         };
     }
-    pub fn delete_key(&mut self, key: &str) -> String {
+    pub fn delete_key(&mut self, key: &str) -> BottResult<()> {
         return match key {
+            "ollama:model" => {
+                self.ollama_options = None;
+                self.save()?;
+                Ok(())
+            }
+            "openai:api_key" => {
+                let (namespace, key) = key.split_once(":").unwrap();
+                let keychain = Keychain::load(namespace);
+                Ok(keychain.delete(key)?)
+            }
             _ => unimplemented!(),
         };
     }

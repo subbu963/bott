@@ -1,3 +1,4 @@
+use crate::config::BottConfig;
 use crate::errors::{BottError, BottOllamaError};
 use crate::result::BottResult;
 use regex::Regex;
@@ -28,7 +29,7 @@ pub struct GenerateResponse {
     response: String,
     context: Vec<usize>,
 }
-pub async fn get_codellama_model() -> BottResult<String> {
+pub async fn get_model() -> BottResult<String> {
     let body: ModelTags;
     if let Ok(req) = reqwest::get("http://localhost:11434/api/tags").await {
         if let Ok(_body) = req.json::<ModelTags>().await {
@@ -39,17 +40,14 @@ pub async fn get_codellama_model() -> BottResult<String> {
     } else {
         return Err(BottError::OllamaErr(BottOllamaError::NotRunning));
     }
-    let mut codellama_models = Vec::from_iter(
-        body.models
-            .iter()
-            .filter(|model| model.name.starts_with("codellama:")),
-    );
-    codellama_models.sort_by(|a, b| b.size.cmp(&a.size));
-    if codellama_models.is_empty() {
-        return Err(BottError::OllamaErr(BottOllamaError::CodeLlamaUnavailable));
+    let mut config: BottConfig = BottConfig::load()?;
+    let chosen_model = config.get_key("ollama:model")?.unwrap();
+    if !body.models.iter().any(|m| m.name == chosen_model) {
+        return Err(BottError::OllamaErr(BottOllamaError::ModelUnavailable(
+            chosen_model,
+        )));
     }
-    let first = codellama_models.get(0).unwrap().name.clone();
-    Ok(first)
+    Ok(chosen_model)
 }
 pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
