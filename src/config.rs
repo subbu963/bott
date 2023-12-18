@@ -10,7 +10,9 @@ pub struct OllamaOptions {
     model: String,
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct OpenaiOptions {}
+pub struct OpenaiOptions {
+    model: String,
+}
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BottConfig {
     version: String,
