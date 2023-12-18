@@ -1,22 +1,22 @@
 alias bott_="/Users/aditya/RustroverProjects/bott/target/debug/bott"
 
 function bott_init() {
-	export bott_last_executed_code=""
-	export bott_last_output=""
-	export bott_last_response=""
-	export bott_last_exit_code=0
+	export bott_last_run_executed_code=""
+	export bott_last_run_output=""
+	export bott_last_run_exit_code=0
+	export bott_last_query_response=""
+	export bott_last_query_exit_code=0
 	export bott_context=""
 }
 function bott_execute_code() {
-	bott_last_executed_code=$1
-	bott_last_output=$(eval "$1" 2>&1)
-	bott_last_exit_code=$?
+	bott_last_run_executed_code=$1
+	bott_last_run_output=$(eval "$1" 2>&1)
+	bott_last_run_exit_code=$?
 
-	if [ $bott_last_exit_code -ne 0 ]; then
-		echo "in non zero exit code"
-		bott_last_output="${bott_last_output/"(eval):1: "/""}"
+	if [ $bott_last_run_exit_code -ne 0 ]; then
+		bott_last_run_output="${bott_last_run_output/"(eval):1: "/""}"
 	fi
-	return $bott_last_exit_code
+	return $bott_last_run_exit_code
 }
 function bott_get_distro() {
 	local d=""
@@ -58,28 +58,32 @@ function bott!() {
 	"run")
 		local code_to_exec="${*/"run"/""}"
 		bott_execute_code $code_to_exec
-		echo $bott_last_output
-		return "$bott_last_exit_code"
+		echo $bott_last_run_output
+		return "$bott_last_run_exit_code"
 		;;
 	"query")
 		local distro="$(bott_get_distro)"
 		local shell="$(bott_get_shell)"
 		local query="${*/"query"/""}"
 		local code_to_exec="bott_ query -d \"$distro\" -s \"$shell\" -q \"$query\""
-		local res=$(eval "$code_to_exec" 2>&1)
+		bott_last_query_response=$(eval "$code_to_exec" 2>&1)
+		bott_last_query_exit_code=$?
+		if [ $bott_last_query_exit_code -ne 0 ]; then
+			echo "$res"
+			return $bott_last_query_exit_code
+		fi
 		local answer=$(echo "$res" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
 		local context=$(echo "$res" | awk -v RS="<CONTEXT>" -v ORS="" 'NR>1{gsub(/<\/CONTEXT>.*/, ""); print}')
 		if [ -z $answer ]; then
 			echo "$res"
 			return 1
 		fi
-		bott_last_response="$res"
 		bott_context="$context"
 		echo "Answer: $answer"
 		if bott_ confirm -q "Do you want to run the command?"; then
 			bott_execute_code $answer
-			echo $bott_last_output
-			return "$bott_last_exit_code"
+			echo $bott_last_run_output
+			return "$bott_last_run_exit_code"
 		fi
 		;;
 	"clear")
