@@ -107,6 +107,18 @@ function bott!() {
 		local answer=$(echo "$bott_last_debug_response" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
 		echo "Answer: $answer"
 		;;
+	"config")
+		local code_to_exec="bott_ $*"
+		bott_last_other_response=$(eval "$code_to_exec" 2>&1)
+		bott_last_other_exit_code=$?
+		echo "$bott_last_other_response"
+		if [ $bott_last_debug_exit_code -ne 0 ]; then
+			bott_init
+			echo "session cleared"
+		fi
+
+		return $bott_last_other_exit_code
+		;;
 	*)
 		local code_to_exec="bott_ $*"
 		bott_last_other_response=$(eval "$code_to_exec" 2>&1)
