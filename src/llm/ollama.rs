@@ -95,14 +95,16 @@ pub async fn generate(
     model: &str,
     distro: &str,
     shell: &str,
-    context: Vec<usize>,
     debug: bool,
 ) -> BottResult<GenerateOutput> {
+    let mut context: Vec<usize>;
     let client = reqwest::Client::new();
     let mut system_prompt = String::from("");
     if (debug) {
+        context = vec![];
         system_prompt = get_debug_system_prompt(distro, shell);
     } else {
+        context = get_context();
         system_prompt = get_query_system_prompt(distro, shell);
     }
     let body: GenerateResponse;

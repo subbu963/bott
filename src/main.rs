@@ -120,7 +120,7 @@ async fn main() {
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
             let context = get_context();
 
-            match generate(query, model.as_str(), distro, shell, context, false).await {
+            match generate(query, model.as_str(), distro, shell, false).await {
                 Ok(output) => {
                     sp.stop_with_message("".to_string());
                     print_answer_and_context(output);
@@ -148,17 +148,7 @@ async fn main() {
             let prompt = get_debug_prompt(input.as_str(), output.as_str());
             let distro = sub_matches.get_one::<String>("distro").unwrap().trim();
             let shell = sub_matches.get_one::<String>("shell").unwrap().trim();
-            let context = vec![];
-            match generate(
-                prompt.as_str(),
-                model.as_str(),
-                distro,
-                shell,
-                context,
-                true,
-            )
-            .await
-            {
+            match generate(prompt.as_str(), model.as_str(), distro, shell, true).await {
                 Ok(output) => {
                     sp.stop_with_message("".to_string());
                     print_answer_and_context(output);
@@ -200,9 +190,8 @@ async fn main() {
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
-                    config.set_key(key, value);
 
-                    if let Err(e) = config.save() {
+                    if let Err(e) = config.set_key(key, value) {
                         print!("{}", e.to_string());
                         exit(exitcode::UNAVAILABLE);
                     }
@@ -246,8 +235,7 @@ async fn main() {
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
-                    config.delete_key(key);
-                    if let Err(e) = config.save() {
+                    if let Err(e) = config.delete_key(key) {
                         print!("{}", e.to_string());
                         exit(exitcode::UNAVAILABLE);
                     }
