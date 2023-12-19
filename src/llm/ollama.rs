@@ -1,10 +1,10 @@
 use crate::config::BottConfig;
 use crate::errors::{BottError, BottOllamaError};
+use crate::llm::GenerateOutputOllama;
 use crate::result::BottResult;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use std::env;
-use std::process::exit;
 
 #[derive(Deserialize, Debug)]
 pub struct ModelMetadata {
@@ -86,24 +86,25 @@ pub fn get_debug_prompt(input: &str, output: &str) -> String {
         output = output,
     );
 }
-pub struct GenerateOutput {
-    answer: String,
-    context: Vec<usize>,
-}
 pub async fn generate(
     query: &str,
-    model: &str,
     distro: &str,
     shell: &str,
     debug: bool,
-) -> BottResult<GenerateOutput> {
-    let mut context: Vec<usize>;
+) -> BottResult<GenerateOutputOllama> {
+    let model: String = get_model().await?;
+    let context: Vec<usize>;
+    let prompt: String;
     let client = reqwest::Client::new();
     let mut system_prompt = String::from("");
     if (debug) {
+        let input = env::var("bott_last_run_executed_code").unwrap_or(String::from(""));
+        let output = env::var("bott_last_run_output").unwrap_or(String::from(""));
+        prompt = get_debug_prompt(input.as_str(), output.as_str());
         context = vec![];
         system_prompt = get_debug_system_prompt(distro, shell);
     } else {
+        prompt = String::from(query);
         context = get_context();
         system_prompt = get_query_system_prompt(distro, shell);
     }
@@ -111,8 +112,8 @@ pub async fn generate(
     if let Ok(req) = client
         .post("http://localhost:11434/api/generate")
         .json(&GenerateRequest {
-            model: String::from(model),
-            prompt: String::from(query),
+            model: model,
+            prompt: prompt,
             stream: false,
             system: system_prompt,
             context: context,
@@ -129,16 +130,15 @@ pub async fn generate(
         return Err(BottError::OllamaErr(BottOllamaError::NotRunning));
     }
     if (debug) {
-        return Ok(GenerateOutput {
+        return Ok(GenerateOutputOllama {
             answer: String::from(body.response),
             context: body.context,
         });
     }
     let re = Regex::new(r"```bash(?P<bash_code>[\s\S]*?)```").unwrap();
-    // Iterate over and collect all of the matches.
     let matches = re.captures(body.response.as_str());
     return match matches {
-        Some(c) => Ok(GenerateOutput {
+        Some(c) => Ok(GenerateOutputOllama {
             answer: String::from(&c["bash_code"]).trim().to_string(),
             context: body.context,
         }),
@@ -157,7 +157,7 @@ pub fn get_context() -> Vec<usize> {
     }
     return context;
 }
-pub fn print_answer_and_context(output: GenerateOutput) {
+pub fn print_answer_and_context(output: GenerateOutputOllama) {
     let context = output
         .context
         .iter()
