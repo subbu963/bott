@@ -1,24 +1,22 @@
-mod ollama;
-mod openai;
-
-pub mod prelude {
-    pub use super::ollama::*;
-}
+pub mod ollama;
+pub mod openai;
 
 use crate::config::BottConfig;
 use crate::llm::ollama::{
     generate as ollama_generate, print_answer_and_context as ollama_print_answer_and_context,
 };
 use crate::result::BottResult;
+use async_openai::types::ChatCompletionRequestMessage;
 
+#[derive(Debug)]
 pub struct GenerateOutputOllama {
     answer: String,
     context: Vec<usize>,
 }
-
+#[derive(Debug)]
 pub struct GenerateOutputOpenai {
     answer: String,
-    context: Vec<String>,
+    context: Vec<ChatCompletionRequestMessage>,
 }
 
 pub enum GenerateOutput {

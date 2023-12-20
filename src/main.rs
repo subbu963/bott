@@ -5,11 +5,11 @@ mod llm;
 mod result;
 
 use crate::config::BottConfig;
+use crate::llm::openai::{generate as openai_generate, get_context};
 use crate::llm::{generate, print_answer_and_context};
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
 use spinners::{Spinner, Spinners};
-use std::env;
 use std::process::exit;
 
 fn cli() -> Command {
@@ -101,6 +101,13 @@ fn cli() -> Command {
 
 #[tokio::main]
 async fn main() {
+    println!(
+        "{:?}",
+        openai_generate("hi", "macos", "/bin/zsh", false)
+            .await
+            .unwrap()
+    );
+    // get_context("macos", "/bin/zsh");
     let matches = cli().get_matches();
     match matches.subcommand() {
         Some(("query", sub_matches)) => {

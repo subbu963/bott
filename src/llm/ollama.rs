@@ -57,7 +57,6 @@ pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     For your information, 
     Operating system: {distro}
     Shell: {shell}
-    Last executed command: 
     "#,
         distro = distro,
         shell = shell,
