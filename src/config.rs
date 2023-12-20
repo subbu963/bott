@@ -28,7 +28,9 @@ impl Default for BottConfig {
             ollama_options: Some(OllamaOptions {
                 model: String::from("codellama:7b-instruct"),
             }),
-            openai_options: None,
+            openai_options: Some(OpenaiOptions {
+                model: String::from("gpt-4"),
+            }),
         }
     }
 }
@@ -76,6 +78,12 @@ impl BottConfig {
                 });
                 self.save()?;
             }
+            "openai:model" => {
+                self.openai_options = Some(OpenaiOptions {
+                    model: value.to_string(),
+                });
+                self.save()?;
+            }
             "openai:api_key" => {
                 let (namespace, key) = key.split_once(":").unwrap();
                 let keychain = Keychain::load(namespace);
@@ -94,6 +102,12 @@ impl BottConfig {
                 }
                 Ok(None)
             }
+            "openai:model" => {
+                if let Some(options) = self.openai_options.clone() {
+                    return Ok(Some(options.model));
+                }
+                Ok(None)
+            }
             "openai:api_key" => {
                 let (namespace, key) = key.split_once(":").unwrap();
                 let keychain = Keychain::load(namespace);
@@ -106,6 +120,11 @@ impl BottConfig {
         return match key {
             "ollama:model" => {
                 self.ollama_options = None;
+                self.save()?;
+                Ok(())
+            }
+            "openai:model" => {
+                self.openai_options = None;
                 self.save()?;
                 Ok(())
             }

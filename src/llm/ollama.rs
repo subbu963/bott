@@ -1,6 +1,8 @@
 use crate::config::BottConfig;
 use crate::errors::{BottError, BottOllamaError};
-use crate::llm::GenerateOutputOllama;
+use crate::llm::{
+    get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOllama,
+};
 use crate::result::BottResult;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
@@ -49,42 +51,7 @@ pub async fn get_model() -> BottResult<String> {
     }
     Ok(chosen_model)
 }
-pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
-    return format!(
-        r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags. 
-    The bash code needs to be compatible with the users operating system and shell.
-    For your information, 
-    Operating system: {distro}
-    Shell: {shell}
-    "#,
-        distro = distro,
-        shell = shell,
-    );
-}
 
-pub fn get_debug_system_prompt(distro: &str, shell: &str) -> String {
-    return format!(
-        r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage. Given an input command and the corresponding output, tell the user why the command is failing. Write your answer in a single line with newlines using `\n` and double quoutes escaped
-    For your information, 
-    Operating system: {distro}
-    Shell: {shell}
-    "#,
-        distro = distro,
-        shell = shell,
-    );
-}
-pub fn get_debug_prompt(input: &str, output: &str) -> String {
-    return format!(
-        r#"
-    input: {input}
-    output: {output}
-    "#,
-        input = input,
-        output = output,
-    );
-}
 pub async fn generate(
     query: &str,
     distro: &str,
