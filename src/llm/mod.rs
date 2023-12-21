@@ -5,7 +5,9 @@ use crate::config::BottConfig;
 use crate::llm::ollama::{
     generate as ollama_generate, print_answer_and_context as ollama_print_answer_and_context,
 };
-use crate::llm::openai::generate as openai_generate;
+use crate::llm::openai::{
+    generate as openai_generate, print_answer_and_context as openai_print_answer_and_context,
+};
 use crate::result::BottResult;
 use async_openai::types::ChatCompletionRequestMessage;
 use std::string::ToString;
@@ -80,10 +82,9 @@ pub async fn generate(
     return Ok(output);
 }
 pub fn print_answer_and_context(output: GenerateOutput) -> BottResult<()> {
-    let mut config: BottConfig = BottConfig::load()?;
-    let llm = config.get_key("llm")?;
     match output {
         GenerateOutput::Ollama(o) => ollama_print_answer_and_context(o),
+        GenerateOutput::Openai(o) => openai_print_answer_and_context(o),
         _ => unimplemented!(),
     }
     Ok(())

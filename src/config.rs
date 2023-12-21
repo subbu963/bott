@@ -71,6 +71,7 @@ impl BottConfig {
         match key {
             "llm" => {
                 self.llm = String::from(value);
+                self.save()?;
             }
             "ollama:model" => {
                 self.ollama_options = Some(OllamaOptions {

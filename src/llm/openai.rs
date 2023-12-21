@@ -1,8 +1,7 @@
 use crate::config::BottConfig;
 use crate::errors::{BottError, BottOllamaError};
 use crate::llm::{
-    get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOllama,
-    GenerateOutputOpenai,
+    get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOpenai,
 };
 use crate::result::BottResult;
 use async_openai::types::ChatCompletionRequestUserMessage;
@@ -76,7 +75,7 @@ pub async fn generate(
     let client = Client::with_config(openai_config);
 
     let request = CreateChatCompletionRequestArgs::default()
-        .model("gpt-4")
+        .model(model)
         .messages(context.clone())
         .build()
         .unwrap();
@@ -101,4 +100,13 @@ pub async fn generate(
         }),
         None => Err(BottError::OllamaErr(BottOllamaError::UnableToGetResponse)),
     };
+}
+
+pub fn print_answer_and_context(output: GenerateOutputOpenai) {
+    let context = serde_json::to_string(&output.context).unwrap();
+    print!(
+        "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
+        answer = output.answer.trim(),
+        context = context
+    );
 }
