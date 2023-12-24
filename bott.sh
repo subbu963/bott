@@ -1,4 +1,4 @@
-alias bott_="/Users/aditya/RustroverProjects/bott/target/debug/bott"
+alias bott_="$BOTT_DIR/bott";
 
 function bott_init() {
 	export bott_last_run_executed_code=""

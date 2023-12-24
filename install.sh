@@ -1,42 +1,53 @@
 #!/bin/bash
 
-# Check if Rust is installed and the version is greater than or equal to 1.74.0
-if command -v rustc >/dev/null 2>&1 && [ "$(rustc --version | awk '{print $2}')" \> "1.74.0" ]; then
-  echo "Rust is installed, and the version is greater than or equal to 1.74.0."
-else
-  echo "Installing Rust..."
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-  source $HOME/.cargo/env
-fi
+# Function to check Rust version
+check_rust_version() {
+    local version=$(rustc --version | cut -d ' ' -f2)
+    local required_version="1.74.0"
 
-# Create a temporary directory
-TEMP=$(mktemp -d)
+    if [[ "$(printf '%s\n' "$required_version" "$version" | sort -V | head -n1)" != "$required_version" ]]; then
+        echo "Error: Rust version $required_version or newer is required. Please update Rust and try again."
+        exit 1
+    fi
+}
 
-# Clone the repository
-git clone https://github.com/subbu963/bott.git "$TEMP"
+# Function to download and install Bott
+install_bott() {
+    local temp_dir=$(mktemp -d)
+    local bott_dir="$HOME/.bott"
+    local bott_repo="https://github.com/subbu963/bott"
 
-# Change to the project directory
-cd "$TEMP"
+    # Check Rust version
+    check_rust_version
 
-# Compile the code using cargo
-cargo build --release
+    # Clone Bott repository
+    git clone "$bott_repo" "$temp_dir" || {
+        echo "Error: Failed to clone Bott repository. Please check your internet connection and try again."
+        exit 1
+    }
 
-# Create the .bott directory in the home directory
-mkdir -p "$HOME/.bott"
+    # Compile the code
+    cd "$temp_dir" || exit 1
+    cargo build --release || {
+        echo "Error: Failed to compile Bott. Please check for any compilation errors and try again."
+        exit 1
+    }
 
-# Copy the compiled binary to .bott directory
-cp "$TEMP/target/release/bott" "$HOME/.bott/"
+    # Create Bott directory
+    mkdir -p "$bott_dir"
 
-# Copy the bott.sh script to .bott directory
-cp "$TEMP/bott.sh" "$HOME/.bott/"
+    # Copy binaries to Bott directory
+    cp "$temp_dir/target/release/bott" "$bott_dir/"
+    cp "$temp_dir/bott.sh" "$bott_dir/"
 
-# Clean up temporary directory
-rm -rf "$TEMP"
+    # Prompt user to update shell configuration
+    echo "Bott installed successfully!"
+    echo "Please append the following lines to your shell configuration file (.bashrc, .zshrc, etc.):"
+    echo '```bash'
+    echo "export BOTT_DIR=\"$bott_dir\""
+    echo '[ -s "$BOTT_DIR/bott.sh" ] && \. "$BOTT_DIR/bott.sh"  # This loads bott'
+    echo '```'
+}
 
-# Prompt user to append configuration snippet to their shell configuration file
-echo "Please append the following snippet to your shell configuration file (.bashrc, .zshrc, etc.):"
-echo ""
-echo 'export BOTT_DIR="$HOME/.bott"'
-echo '[ -s "$BOTT_DIR/bott.sh" ] && \. "$BOTT_DIR/bott.sh"  # This loads bott'
-echo ""
-echo "Installation completed successfully."
+# Main execution
+install_bott

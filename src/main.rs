@@ -16,6 +16,7 @@ fn cli() -> Command {
     Command::new("bott")
         .about("Your friendly terminal-hood chatbot")
         .arg_required_else_help(true)
+        .arg(arg!(version: -v --version))
         .subcommand(
             Command::new("query")
                 .about("Query")
@@ -102,6 +103,7 @@ fn cli() -> Command {
 #[tokio::main]
 async fn main() {
     let matches = cli().get_matches();
+
     match matches.subcommand() {
         Some(("query", sub_matches)) => {
             let mut sp = Spinner::new(Spinners::Dots, "Thinking...".into());
@@ -222,6 +224,12 @@ async fn main() {
                 _ => unreachable!(),
             }
         }
-        _ => unreachable!(),
+        _ => {
+            if (matches.args_present() && matches.get_flag("version")) {
+                print!("{}", std::env!("CARGO_PKG_VERSION"));
+                return;
+            }
+            unreachable!();
+        }
     }
 }
