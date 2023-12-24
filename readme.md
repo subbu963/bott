@@ -1,9 +1,16 @@
 <p align="center">
-  <img src="./bott.png"/>
+  <img src="./assets/bott.png"/>
 </p>
 
 # Welcome to `bott`: Your Terminal Copilot
 `bott` (short for bot-in-terminal) is not just a command line tool; it's your copilot in the vast world of the terminal. Designed to make you feel like a terminal pro, bott assists you with day-to-day activities, provides helpful tips, and even adds a touch of humor to your command line experience.
+<p align="left">
+  <img src="./assets/query.gif"/>
+</p>
+<p align="right">
+  <img src="./assets/debug.gif"/>
+</p>
+
 ## Installation
 ### Rust
 Install rust if you don't have it already and ensure a version greater than 1.74.0
