@@ -43,10 +43,10 @@ install_bott() {
     # Prompt user to update shell configuration
     echo "Bott installed successfully!"
     echo "Please append the following lines to your shell configuration file (.bashrc, .zshrc, etc.):"
-    echo '```bash'
+    echo ''
     echo "export BOTT_DIR=\"$bott_dir\""
     echo '[ -s "$BOTT_DIR/bott.sh" ] && \. "$BOTT_DIR/bott.sh"  # This loads bott'
-    echo '```'
+    echo ''
 }
 
 # Main execution

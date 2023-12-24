@@ -6,6 +6,7 @@
 Install rust if you don't have it already and ensure a version greater than 1.74.0
 ```bash
 $ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+$ source $HOME/.cargo/env
 $ rustc --version
 ```
 ### Bott
