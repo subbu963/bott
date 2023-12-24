@@ -49,7 +49,7 @@ $ bott! config set -k ollama:model -v codellama:7b-instruct
 ```
 3. Configure bott to use Ollama:
 ```bash
-$ bott! config set -k llm openai
+$ bott! config set -k llm ollama
 ```
 Secure and ready, bott now utilizes the Ollama model to enhance your terminal experience.
 ### Commands
