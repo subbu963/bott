@@ -112,7 +112,8 @@ function bott!() {
 		bott_last_other_response=$(eval "$code_to_exec" 2>&1)
 		bott_last_other_exit_code=$?
 		echo "$bott_last_other_response"
-		if [ $bott_last_other_exit_code -eq 0 ]; then
+		local query="${*/"config"/""}"
+		if [ $bott_last_other_exit_code -eq 0 ] && [[ ! "$query" =~ ^\ get ]]; then
 			bott_init
 			echo "config set and session cleared"
 		fi
