@@ -9,26 +9,177 @@ use crate::llm::openai::{
     generate as openai_generate, print_answer_and_context as openai_print_answer_and_context,
 };
 use crate::result::BottResult;
-use async_openai::types::ChatCompletionRequestMessage;
+use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestUserMessageContent};
+use base64::{
+    alphabet,
+    engine::{self, general_purpose},
+    Engine as _,
+};
 use std::string::ToString;
 
 const LLM_OLLAMA: &str = "ollama";
 const LLM_OPENAI: &str = "openai";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenerateOutputOllama {
     answer: String,
     context: Vec<usize>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenerateOutputOpenai {
     answer: String,
     context: Vec<ChatCompletionRequestMessage>,
+}
+impl GenerateOutputOpenai {
+    pub fn encode_context(
+        context: &Vec<ChatCompletionRequestMessage>,
+    ) -> Vec<ChatCompletionRequestMessage> {
+        return context
+            .iter()
+            .map(|m| match m {
+                ChatCompletionRequestMessage::User(_m) => {
+                    let mut c = _m.clone();
+                    if let Some(ChatCompletionRequestUserMessageContent::Text(_c)) = c.content {
+                        c.content = Some(ChatCompletionRequestUserMessageContent::Text(
+                            general_purpose::STANDARD.encode(_c),
+                        ));
+                    }
+                    ChatCompletionRequestMessage::User(c)
+                }
+                ChatCompletionRequestMessage::System(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                    }
+                    ChatCompletionRequestMessage::System(c)
+                }
+                ChatCompletionRequestMessage::Assistant(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                    }
+                    ChatCompletionRequestMessage::Assistant(c)
+                }
+                ChatCompletionRequestMessage::Tool(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                    }
+                    ChatCompletionRequestMessage::Tool(c)
+                }
+                ChatCompletionRequestMessage::Function(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                    }
+                    ChatCompletionRequestMessage::Function(c)
+                }
+            })
+            .collect::<Vec<ChatCompletionRequestMessage>>();
+    }
+    pub fn decode_context(
+        context: &Vec<ChatCompletionRequestMessage>,
+    ) -> Vec<ChatCompletionRequestMessage> {
+        return context
+            .iter()
+            .map(|m| match m {
+                ChatCompletionRequestMessage::User(_m) => {
+                    let mut c = _m.clone();
+                    if let Some(ChatCompletionRequestUserMessageContent::Text(_c)) = c.content {
+                        c.content = Some(ChatCompletionRequestUserMessageContent::Text(
+                            String::from_utf8(general_purpose::STANDARD.decode(_c).unwrap())
+                                .unwrap(),
+                        ));
+                    }
+                    ChatCompletionRequestMessage::User(c)
+                }
+                ChatCompletionRequestMessage::System(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(
+                            String::from_utf8(
+                                general_purpose::STANDARD
+                                    .decode(c.content.unwrap())
+                                    .unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    ChatCompletionRequestMessage::System(c)
+                }
+                ChatCompletionRequestMessage::Assistant(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(
+                            String::from_utf8(
+                                general_purpose::STANDARD
+                                    .decode(c.content.unwrap())
+                                    .unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    ChatCompletionRequestMessage::Assistant(c)
+                }
+                ChatCompletionRequestMessage::Tool(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(
+                            String::from_utf8(
+                                general_purpose::STANDARD
+                                    .decode(c.content.unwrap())
+                                    .unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    ChatCompletionRequestMessage::Tool(c)
+                }
+                ChatCompletionRequestMessage::Function(_m) => {
+                    let mut c = _m.clone();
+                    if c.content.is_some() {
+                        c.content = Some(
+                            String::from_utf8(
+                                general_purpose::STANDARD
+                                    .decode(c.content.unwrap())
+                                    .unwrap(),
+                            )
+                            .unwrap(),
+                        );
+                    }
+                    ChatCompletionRequestMessage::Function(c)
+                }
+            })
+            .collect::<Vec<ChatCompletionRequestMessage>>();
+    }
 }
 
 pub enum GenerateOutput {
     Ollama(GenerateOutputOllama),
     Openai(GenerateOutputOpenai),
+}
+impl GenerateOutput {
+    pub async fn get_output(
+        llm: &str,
+        query: &str,
+        distro: &str,
+        shell: &str,
+        debug: bool,
+    ) -> BottResult<GenerateOutput> {
+        let output = match llm {
+            LLM_OLLAMA => {
+                let _output = ollama_generate(query, distro, shell, debug).await?;
+                GenerateOutput::Ollama(_output)
+            }
+            LLM_OPENAI => {
+                print!("i am here 1");
+                let _output = openai_generate(query, distro, shell, debug).await?;
+                GenerateOutput::Openai(_output)
+            }
+            _ => unimplemented!(),
+        };
+        Ok(output)
+    }
 }
 pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
@@ -74,11 +225,7 @@ pub async fn generate(
 ) -> BottResult<GenerateOutput> {
     let mut config: BottConfig = BottConfig::load()?;
     let llm = config.get_key("llm")?.unwrap_or("".to_string());
-    let output = match llm.as_str() {
-        LLM_OLLAMA => GenerateOutput::Ollama(ollama_generate(query, distro, shell, debug).await?),
-        LLM_OPENAI => GenerateOutput::Openai(openai_generate(query, distro, shell, debug).await?),
-        _ => unimplemented!(),
-    };
+    let output = GenerateOutput::get_output(llm.as_str(), query, distro, shell, debug).await?;
     return Ok(output);
 }
 pub fn print_answer_and_context(output: GenerateOutput) -> BottResult<()> {

@@ -9,6 +9,10 @@ pub enum BottOllamaError {
     UnknownError(String),
 }
 #[derive(Debug)]
+pub enum BottOpenaiError {
+    UnableToGetResponse,
+}
+#[derive(Debug)]
 pub enum BottError {
     ConfigPathErr,
     ConfigLoadErr,
@@ -18,6 +22,7 @@ pub enum BottError {
     KeychainSetErr,
     KeychainDeleteErr,
     OllamaErr(BottOllamaError),
+    OpenaiErr(BottOpenaiError),
 }
 impl fmt::Display for BottError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -29,6 +34,7 @@ impl fmt::Display for BottError {
             BottError::KeychainGetErr => write!(f, "Unable to get key from keychain"),
             BottError::KeychainSetErr => write!(f, "Unable to set key in keychain"),
             BottError::KeychainDeleteErr => write!(f, "Unable delete key from keychain"),
+            // Ollama errors
             BottError::OllamaErr(BottOllamaError::NotRunning) => write!(f, "Ollama not running?"),
             BottError::OllamaErr(BottOllamaError::InvalidResponse) => {
                 write!(f, "Ollama sent invalid response")
@@ -41,6 +47,10 @@ impl fmt::Display for BottError {
             }
             BottError::OllamaErr(BottOllamaError::UnknownError(s)) => {
                 write!(f, "Unexpected error: {}", s)
+            }
+            // Openai errors
+            BottError::OpenaiErr(BottOpenaiError::UnableToGetResponse) => {
+                write!(f, "Openai sent invalid response")
             }
         }
     }

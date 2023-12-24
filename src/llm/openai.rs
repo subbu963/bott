@@ -1,10 +1,9 @@
 use crate::config::BottConfig;
-use crate::errors::{BottError, BottOllamaError};
+use crate::errors::{BottError, BottOllamaError, BottOpenaiError};
 use crate::llm::{
     get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOpenai,
 };
 use crate::result::BottResult;
-use async_openai::types::ChatCompletionRequestUserMessage;
 use async_openai::{
     config::OpenAIConfig,
     types::{
@@ -14,11 +13,20 @@ use async_openai::{
     },
     Client,
 };
+use base64::{
+    alphabet,
+    engine::{self, general_purpose},
+    Engine as _,
+};
 use regex::Regex;
 use std::env;
 
+fn remove_control_characters(input: &str) -> String {
+    input.chars().filter(|&c| c > '\u{001F}').collect()
+}
+
 pub fn get_context(distro: &str, shell: &str, debug: bool) -> Vec<ChatCompletionRequestMessage> {
-    let system_prompt: String;
+    let mut system_prompt: String;
     if debug {
         system_prompt = get_debug_system_prompt(distro, shell);
     } else {
@@ -30,16 +38,22 @@ pub fn get_context(distro: &str, shell: &str, debug: bool) -> Vec<ChatCompletion
         .unwrap()];
     let default_bott_context = serde_json::to_string(&default_messages).unwrap();
     let mut context_env: String;
+    let mut need_to_decode = false;
     if (debug) {
         context_env = default_bott_context;
     } else {
         context_env = env::var("bott_context").unwrap_or(default_bott_context.clone());
         if context_env.is_empty() {
             context_env = default_bott_context
+        } else {
+            need_to_decode = true;
         }
     }
     let context: Vec<ChatCompletionRequestMessage> =
         serde_json::from_str(context_env.as_str()).unwrap();
+    if need_to_decode {
+        return GenerateOutputOpenai::decode_context(&context);
+    }
     return context;
 }
 pub async fn get_model() -> BottResult<String> {
@@ -58,7 +72,7 @@ pub async fn generate(
     let api_key = config.get_key("openai:api_key")?.unwrap();
     let openai_config = OpenAIConfig::new().with_api_key(api_key);
     let mut context: Vec<ChatCompletionRequestMessage> = get_context(distro, shell, debug);
-    let prompt: String;
+    let mut prompt: String;
     if (debug) {
         let input = env::var("bott_last_run_executed_code").unwrap_or(String::from(""));
         let output = env::var("bott_last_run_output").unwrap_or(String::from(""));
@@ -82,28 +96,35 @@ pub async fn generate(
 
     let response = client.chat().create(request).await.unwrap();
     let output = response.choices.get(0).unwrap();
-
-    let re = Regex::new(r"```bash(?P<bash_code>[\s\S]*?)```").unwrap();
-    let content = output.message.content.as_ref().unwrap().clone();
-    let matches = re.captures(content.as_str());
+    let content = output.message.content.clone().unwrap_or("".to_string());
     context.push(ChatCompletionRequestMessage::Assistant(
         ChatCompletionRequestAssistantMessageArgs::default()
-            .content(output.message.content.clone().unwrap_or("".to_string()))
+            .content(content.clone().as_str())
             .tool_calls(output.message.tool_calls.clone().unwrap_or(vec![]))
             .build()
             .unwrap(),
     ));
+    if debug {
+        return Ok(GenerateOutputOpenai {
+            answer: content,
+            context,
+        });
+    }
+    let re = Regex::new(r"```bash(?P<bash_code>[\s\S]*?)```").unwrap();
+    let matches = re.captures(content.as_str());
+
     return match matches {
         Some(c) => Ok(GenerateOutputOpenai {
             answer: String::from(&c["bash_code"]).trim().to_string(),
-            context: context,
+            context,
         }),
-        None => Err(BottError::OllamaErr(BottOllamaError::UnableToGetResponse)),
+        None => Err(BottError::OpenaiErr(BottOpenaiError::UnableToGetResponse)),
     };
 }
 
 pub fn print_answer_and_context(output: GenerateOutputOpenai) {
-    let context = serde_json::to_string(&output.context).unwrap();
+    let encoded_context = GenerateOutputOpenai::encode_context(&output.context);
+    let context = serde_json::to_string(&encoded_context).unwrap();
     print!(
         "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
         answer = output.answer.trim(),
