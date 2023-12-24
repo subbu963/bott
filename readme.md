@@ -1,6 +1,7 @@
 <p align="center">
   <img src="./bott.png"/>
 </p>
+
 # Welcome to `bott`: Your Terminal Copilot
 `bott` (short for bot-in-terminal) is not just a command line tool; it's your copilot in the vast world of the terminal. Designed to make you feel like a terminal pro, bott assists you with day-to-day activities, provides helpful tips, and even adds a touch of humor to your command line experience.
 ## Installation
