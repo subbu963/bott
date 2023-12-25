@@ -36,20 +36,21 @@ $ bott! config set -k llm openai
 $ bott! config set -k openai:api_key -v YOUR_API_KEY
 ```
 Securely stored in a keychain, your API key is safe with bott.
-3. Default model is `gpt-4`. Set your preferred OpenAI model (refer to [OpenAI's documentation](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo) for available models):
+
+3. Default model is `gpt-4`. If you want to change the OpenAI model (refer to [OpenAI's documentation](https://platform.openai.com/docs/models/gpt-4-and-gpt-4-turbo for available models), do:
 ```bash
 $ bott! config set -k openai:model -v YOUR_PREFERRED_MODEL
 ```
 #### With Ollama
 1. Download Ollama from [ollama.ai](https://ollama.ai).
-2. Default model is `codellama:7b-instruct`. Choose your desired model (refer to the [library](https://ollama.ai/library) for available models), with a preference for codellama.
+2. Default model is `codellama:7b-instruct`. If you want to change the model (refer to the [library](https://ollama.ai/library) for available models), do:
 ```bash
 $ ollama pull codellama:7b-instruct
 $ bott! config set -k ollama:model -v codellama:7b-instruct
 ```
 3. Configure bott to use Ollama:
 ```bash
-$ bott! config set -k llm ollama
+$ bott! config set -k llm -v ollama
 ```
 Secure and ready, bott now utilizes the Ollama model to enhance your terminal experience.
 ### Commands
