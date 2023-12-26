@@ -1,5 +1,10 @@
-pub mod ollama;
-pub mod openai;
+use std::string::ToString;
+
+use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestUserMessageContent};
+use base64::{
+    Engine as _,
+    engine::general_purpose,
+};
 
 use crate::config::BottConfig;
 use crate::llm::ollama::{
@@ -9,13 +14,9 @@ use crate::llm::openai::{
     generate as openai_generate, print_answer_and_context as openai_print_answer_and_context,
 };
 use crate::result::BottResult;
-use async_openai::types::{ChatCompletionRequestMessage, ChatCompletionRequestUserMessageContent};
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-    Engine as _,
-};
-use std::string::ToString;
+
+pub mod ollama;
+pub mod openai;
 
 const LLM_OLLAMA: &str = "ollama";
 const LLM_OPENAI: &str = "openai";
@@ -25,14 +26,16 @@ pub struct GenerateOutputOllama {
     answer: String,
     context: Vec<usize>,
 }
+
 #[derive(Debug, Clone)]
 pub struct GenerateOutputOpenai {
     answer: String,
     context: Vec<ChatCompletionRequestMessage>,
 }
+
 impl GenerateOutputOpenai {
     pub fn encode_context(
-        context: &Vec<ChatCompletionRequestMessage>,
+        context: &[ChatCompletionRequestMessage],
     ) -> Vec<ChatCompletionRequestMessage> {
         return context
             .iter()
@@ -78,7 +81,7 @@ impl GenerateOutputOpenai {
             .collect::<Vec<ChatCompletionRequestMessage>>();
     }
     pub fn decode_context(
-        context: &Vec<ChatCompletionRequestMessage>,
+        context: &[ChatCompletionRequestMessage],
     ) -> Vec<ChatCompletionRequestMessage> {
         return context
             .iter()
@@ -102,7 +105,7 @@ impl GenerateOutputOpenai {
                                     .decode(c.content.unwrap())
                                     .unwrap(),
                             )
-                            .unwrap(),
+                                .unwrap(),
                         );
                     }
                     ChatCompletionRequestMessage::System(c)
@@ -116,7 +119,7 @@ impl GenerateOutputOpenai {
                                     .decode(c.content.unwrap())
                                     .unwrap(),
                             )
-                            .unwrap(),
+                                .unwrap(),
                         );
                     }
                     ChatCompletionRequestMessage::Assistant(c)
@@ -130,7 +133,7 @@ impl GenerateOutputOpenai {
                                     .decode(c.content.unwrap())
                                     .unwrap(),
                             )
-                            .unwrap(),
+                                .unwrap(),
                         );
                     }
                     ChatCompletionRequestMessage::Tool(c)
@@ -144,7 +147,7 @@ impl GenerateOutputOpenai {
                                     .decode(c.content.unwrap())
                                     .unwrap(),
                             )
-                            .unwrap(),
+                                .unwrap(),
                         );
                     }
                     ChatCompletionRequestMessage::Function(c)
@@ -158,6 +161,7 @@ pub enum GenerateOutput {
     Ollama(GenerateOutputOllama),
     Openai(GenerateOutputOpenai),
 }
+
 impl GenerateOutput {
     pub async fn get_output(
         llm: &str,
@@ -181,8 +185,9 @@ impl GenerateOutput {
         Ok(output)
     }
 }
+
 pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
-    return format!(
+    format!(
         r#"
     You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags. 
     The bash code needs to be compatible with the users operating system and shell.
@@ -192,11 +197,11 @@ pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     "#,
         distro = distro,
         shell = shell,
-    );
+    )
 }
 
 pub fn get_debug_system_prompt(distro: &str, shell: &str) -> String {
-    return format!(
+   format!(
         r#"
     You are a helpful code assistant who helps people write single line bash scripts for terminal usage. Given an input command and the corresponding output, tell the user why the command is failing. Write your answer in a single line with newlines using `\n` and double quoutes escaped
     For your information, 
@@ -205,18 +210,20 @@ pub fn get_debug_system_prompt(distro: &str, shell: &str) -> String {
     "#,
         distro = distro,
         shell = shell,
-    );
+    )
 }
+
 pub fn get_debug_prompt(input: &str, output: &str) -> String {
-    return format!(
+    format!(
         r#"
     input: {input}
     output: {output}
     "#,
         input = input,
         output = output,
-    );
+    )
 }
+
 pub async fn generate(
     query: &str,
     distro: &str,
@@ -226,13 +233,13 @@ pub async fn generate(
     let mut config: BottConfig = BottConfig::load()?;
     let llm = config.get_key("llm")?.unwrap_or("".to_string());
     let output = GenerateOutput::get_output(llm.as_str(), query, distro, shell, debug).await?;
-    return Ok(output);
+    Ok(output)
 }
+
 pub fn print_answer_and_context(output: GenerateOutput) -> BottResult<()> {
     match output {
         GenerateOutput::Ollama(o) => ollama_print_answer_and_context(o),
         GenerateOutput::Openai(o) => openai_print_answer_and_context(o),
-        _ => unimplemented!(),
     }
     Ok(())
 }

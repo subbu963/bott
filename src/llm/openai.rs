@@ -1,37 +1,31 @@
-use crate::config::BottConfig;
-use crate::errors::{BottError, BottOllamaError, BottOpenaiError};
-use crate::llm::{
-    get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOpenai,
-};
-use crate::result::BottResult;
+use std::env;
+
 use async_openai::{
+    Client,
     config::OpenAIConfig,
     types::{
         ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
         CreateChatCompletionRequestArgs,
     },
-    Client,
 };
-use base64::{
-    alphabet,
-    engine::{self, general_purpose},
-    Engine as _,
-};
-use regex::Regex;
-use std::env;
 
-fn remove_control_characters(input: &str) -> String {
-    input.chars().filter(|&c| c > '\u{001F}').collect()
-}
+use regex::Regex;
+
+use crate::config::BottConfig;
+use crate::errors::{BottError, BottOpenaiError};
+use crate::llm::{
+    GenerateOutputOpenai, get_debug_prompt, get_debug_system_prompt, get_query_system_prompt,
+};
+use crate::result::BottResult;
 
 pub fn get_context(distro: &str, shell: &str, debug: bool) -> Vec<ChatCompletionRequestMessage> {
-    let mut system_prompt: String;
-    if debug {
-        system_prompt = get_debug_system_prompt(distro, shell);
+    let system_prompt = if debug {
+        get_debug_system_prompt(distro, shell)
     } else {
-        system_prompt = get_query_system_prompt(distro, shell);
-    }
+        get_query_system_prompt(distro, shell)
+    };
+
     let default_messages = vec![ChatCompletionRequestSystemMessageArgs::default()
         .content(system_prompt)
         .build()
@@ -39,7 +33,7 @@ pub fn get_context(distro: &str, shell: &str, debug: bool) -> Vec<ChatCompletion
     let default_bott_context = serde_json::to_string(&default_messages).unwrap();
     let mut context_env: String;
     let mut need_to_decode = false;
-    if (debug) {
+    if debug {
         context_env = default_bott_context;
     } else {
         context_env = env::var("bott_context").unwrap_or(default_bott_context.clone());
@@ -54,13 +48,16 @@ pub fn get_context(distro: &str, shell: &str, debug: bool) -> Vec<ChatCompletion
     if need_to_decode {
         return GenerateOutputOpenai::decode_context(&context);
     }
-    return context;
+
+    context
 }
+
 pub async fn get_model() -> BottResult<String> {
     let mut config = BottConfig::load()?;
     let model = config.get_key("openai:model")?.unwrap();
     Ok(model)
 }
+
 pub async fn generate(
     query: &str,
     distro: &str,
@@ -72,14 +69,14 @@ pub async fn generate(
     let api_key = config.get_key("openai:api_key")?.unwrap();
     let openai_config = OpenAIConfig::new().with_api_key(api_key);
     let mut context: Vec<ChatCompletionRequestMessage> = get_context(distro, shell, debug);
-    let mut prompt: String;
-    if (debug) {
+    let prompt = if debug {
         let input = env::var("bott_last_run_executed_code").unwrap_or(String::from(""));
         let output = env::var("bott_last_run_output").unwrap_or(String::from(""));
-        prompt = get_debug_prompt(input.as_str(), output.as_str());
+        get_debug_prompt(input.as_str(), output.as_str())
     } else {
-        prompt = query.to_string();
-    }
+        query.to_string()
+    };
+
     context.push(ChatCompletionRequestMessage::User(
         ChatCompletionRequestUserMessageArgs::default()
             .content(prompt)
@@ -118,7 +115,7 @@ pub async fn generate(
             answer: String::from(&c["bash_code"]).trim().to_string(),
             context,
         }),
-        None => Err(BottError::OpenaiErr(BottOpenaiError::UnableToGetResponse)),
+        None => Err(BottError::Openai(BottOpenaiError::UnableToGetResponse)),
     };
 }
 
