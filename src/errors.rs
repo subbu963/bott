@@ -14,42 +14,42 @@ pub enum BottOpenaiError {
 }
 #[derive(Debug)]
 pub enum BottError {
-    ConfigPathErr,
-    ConfigLoadErr,
-    ConfigStoreErr,
-    KeychainLoadErr,
-    KeychainGetErr,
-    KeychainSetErr,
-    KeychainDeleteErr,
-    OllamaErr(BottOllamaError),
-    OpenaiErr(BottOpenaiError),
+    ConfigPath,
+    ConfigLoad,
+    ConfigStore,
+    KeychainLoad,
+    KeychainGet,
+    KeychainSet,
+    KeychainDelete,
+    Ollama(BottOllamaError),
+    Openai(BottOpenaiError),
 }
 impl fmt::Display for BottError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            BottError::ConfigPathErr => write!(f, "Unable to get config path"),
-            BottError::ConfigLoadErr => write!(f, "Unable to get config"),
-            BottError::ConfigStoreErr => write!(f, "Unable to store config"),
-            BottError::KeychainLoadErr => write!(f, "Unable to load keychain"),
-            BottError::KeychainGetErr => write!(f, "Unable to get key from keychain"),
-            BottError::KeychainSetErr => write!(f, "Unable to set key in keychain"),
-            BottError::KeychainDeleteErr => write!(f, "Unable delete key from keychain"),
+            BottError::ConfigPath => write!(f, "Unable to get config path"),
+            BottError::ConfigLoad => write!(f, "Unable to get config"),
+            BottError::ConfigStore => write!(f, "Unable to store config"),
+            BottError::KeychainLoad => write!(f, "Unable to load keychain"),
+            BottError::KeychainGet => write!(f, "Unable to get key from keychain"),
+            BottError::KeychainSet => write!(f, "Unable to set key in keychain"),
+            BottError::KeychainDelete => write!(f, "Unable delete key from keychain"),
             // Ollama errors
-            BottError::OllamaErr(BottOllamaError::NotRunning) => write!(f, "Ollama not running?"),
-            BottError::OllamaErr(BottOllamaError::InvalidResponse) => {
+            BottError::Ollama(BottOllamaError::NotRunning) => write!(f, "Ollama not running?"),
+            BottError::Ollama(BottOllamaError::InvalidResponse) => {
                 write!(f, "Ollama sent invalid response")
             }
-            BottError::OllamaErr(BottOllamaError::ModelUnavailable(s)) => {
+            BottError::Ollama(BottOllamaError::ModelUnavailable(s)) => {
                 write!(f, "model not installed. Do `ollama pull {}`", s)
             }
-            BottError::OllamaErr(BottOllamaError::UnableToGetResponse) => {
+            BottError::Ollama(BottOllamaError::UnableToGetResponse) => {
                 write!(f, "Ollama sent invalid response")
             }
-            BottError::OllamaErr(BottOllamaError::UnknownError(s)) => {
+            BottError::Ollama(BottOllamaError::UnknownError(s)) => {
                 write!(f, "Unexpected error: {}", s)
             }
             // Openai errors
-            BottError::OpenaiErr(BottOpenaiError::UnableToGetResponse) => {
+            BottError::Openai(BottOpenaiError::UnableToGetResponse) => {
                 write!(f, "Openai sent invalid response")
             }
         }

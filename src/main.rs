@@ -5,7 +5,6 @@ mod llm;
 mod result;
 
 use crate::config::BottConfig;
-use crate::llm::openai::{generate as openai_generate, get_context};
 use crate::llm::{generate, print_answer_and_context};
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
@@ -114,12 +113,12 @@ async fn main() {
             match generate(query, distro, shell, false).await {
                 Ok(output) => {
                     sp.stop_with_message("".to_string());
-                    print_answer_and_context(output);
+                    print_answer_and_context(output).unwrap();
                     exit(exitcode::OK)
                 }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
-                    print!("{}", e.to_string());
+                    print!("{}", e);
                     exit(exitcode::UNAVAILABLE);
                 }
             }
@@ -131,12 +130,12 @@ async fn main() {
             match generate("", distro, shell, true).await {
                 Ok(output) => {
                     sp.stop_with_message("".to_string());
-                    print_answer_and_context(output);
+                    print_answer_and_context(output).unwrap();
                     exit(exitcode::OK)
                 }
                 Err(e) => {
                     sp.stop_with_message("".to_string());
-                    print!("{}", e.to_string());
+                    print!("{}", e);
                     exit(exitcode::UNAVAILABLE);
                 }
             }
@@ -166,13 +165,13 @@ async fn main() {
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
                         Err(e) => {
-                            print!("{}", e.to_string());
+                            print!("{}", e);
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
 
                     if let Err(e) = config.set_key(key, value) {
-                        print!("{}", e.to_string());
+                        print!("{}", e);
                         exit(exitcode::UNAVAILABLE);
                     }
                 }
@@ -182,7 +181,7 @@ async fn main() {
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
                         Err(e) => {
-                            print!("{}", e.to_string());
+                            print!("{}", e);
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
@@ -200,7 +199,7 @@ async fn main() {
                             };
                         }
                         Err(e) => {
-                            print!("{}", e.to_string());
+                            print!("{}", e);
                             exit(exitcode::UNAVAILABLE);
                         }
                     }
@@ -211,12 +210,12 @@ async fn main() {
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
                         Err(e) => {
-                            print!("{}", e.to_string());
+                            print!("{}", e);
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
                     if let Err(e) = config.delete_key(key) {
-                        print!("{}", e.to_string());
+                        print!("{}", e);
                         exit(exitcode::UNAVAILABLE);
                     }
                     exit(exitcode::OK);
@@ -225,8 +224,8 @@ async fn main() {
             }
         }
         _ => {
-            if (matches.args_present() && matches.get_flag("version")) {
-                print!("{}", std::env!("CARGO_PKG_VERSION"));
+            if matches.args_present() && matches.get_flag("version") {
+                print!("{}", env!("CARGO_PKG_VERSION"));
                 return;
             }
             unreachable!();

@@ -1,18 +1,22 @@
+use std::path::Path;
+
+use directories::UserDirs;
+use serde_derive::{Deserialize, Serialize};
+
 use crate::errors::BottError;
 use crate::keychain::Keychain;
 use crate::result::BottResult;
-use directories::UserDirs;
-use serde_derive::{Deserialize, Serialize};
-use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OllamaOptions {
     model: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct OpenaiOptions {
     model: String,
 }
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BottConfig {
     version: String,
@@ -20,6 +24,7 @@ pub struct BottConfig {
     ollama_options: Option<OllamaOptions>,
     openai_options: Option<OpenaiOptions>,
 }
+
 impl Default for BottConfig {
     fn default() -> Self {
         Self {
@@ -34,6 +39,7 @@ impl Default for BottConfig {
         }
     }
 }
+
 impl BottConfig {
     fn get_path() -> BottResult<String> {
         let mut home = Path::new("");
@@ -43,10 +49,10 @@ impl BottConfig {
             home = _user_dirs.home_dir();
         }
         let bott_directory = Path::new(".bott-cli/config.yml");
-        return match home.join(bott_directory).into_os_string().into_string() {
+        match home.join(bott_directory).into_os_string().into_string() {
             Ok(s) => Ok(s),
-            Err(_) => Err(BottError::ConfigPathErr),
-        };
+            Err(_) => Err(BottError::ConfigPath),
+        }
     }
     pub fn load() -> BottResult<BottConfig> {
         let bott_config_path = BottConfig::get_path()?;
@@ -54,18 +60,18 @@ impl BottConfig {
         if let Ok(config) = confy::load_path::<BottConfig>(bott_config_path) {
             return Ok(config);
         }
-        return Err(BottError::ConfigLoadErr);
+        Err(BottError::ConfigLoad)
     }
     pub fn save(&self) -> BottResult<()> {
         let bott_config_path = BottConfig::get_path()?;
         let _config = self.clone();
-        return match confy::store_path(bott_config_path, _config) {
+        match confy::store_path(bott_config_path, _config) {
             Ok(_) => Ok(()),
             Err(e) => {
                 print!("err is {:?}", e);
-                Err(BottError::ConfigStoreErr)
+                Err(BottError::ConfigStore)
             }
-        };
+        }
     }
     pub fn set_key(&mut self, key: &str, value: &str) -> BottResult<()> {
         match key {
@@ -86,7 +92,7 @@ impl BottConfig {
                 self.save()?;
             }
             "openai:api_key" => {
-                let (namespace, key) = key.split_once(":").unwrap();
+                let (namespace, key) = key.split_once(':').unwrap();
                 let keychain = Keychain::load(namespace);
                 keychain.set(key, value)?;
             }
@@ -110,7 +116,7 @@ impl BottConfig {
                 Ok(None)
             }
             "openai:api_key" => {
-                let (namespace, key) = key.split_once(":").unwrap();
+                let (namespace, key) = key.split_once(':').unwrap();
                 let keychain = Keychain::load(namespace);
                 Ok(keychain.get(key)?)
             }
@@ -130,7 +136,7 @@ impl BottConfig {
                 Ok(())
             }
             "openai:api_key" => {
-                let (namespace, key) = key.split_once(":").unwrap();
+                let (namespace, key) = key.split_once(':').unwrap();
                 let keychain = Keychain::load(namespace);
                 Ok(keychain.delete(key)?)
             }

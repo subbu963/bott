@@ -19,8 +19,8 @@ impl Keychain {
         let user = current_user.name().to_string_lossy().to_string();
         let namespace = String::from(namespace);
         Self {
-            user: user,
-            namespace: namespace,
+            user,
+            namespace,
         }
     }
     fn operate(
@@ -34,28 +34,29 @@ impl Keychain {
             self.user.as_ref(),
         ) {
             Ok(e) => e,
-            Err(_) => return Err(BottError::KeychainLoadErr),
+            Err(_) => return Err(BottError::KeychainLoad),
         };
-        return match operation {
+
+        match operation {
             KeychainOperation::Get => {
                 let password = match entry.get_password() {
                     Ok(s) => s,
-                    Err(_) => return Err(BottError::KeychainGetErr),
+                    Err(_) => return Err(BottError::KeychainGet),
                 };
                 Ok(Some(password))
             }
             KeychainOperation::Set => {
                 let val = value.unwrap();
                 match entry.set_password(val) {
-                    Ok(_) => return Ok(None),
-                    Err(_) => return Err(BottError::KeychainSetErr),
+                    Ok(_) => Ok(None),
+                    Err(_) => Err(BottError::KeychainSet),
                 }
             }
             KeychainOperation::Delete => match entry.delete_password() {
-                Ok(_) => return Ok(None),
-                Err(_) => return Err(BottError::KeychainDeleteErr),
+                Ok(_) => Ok(None),
+                Err(_) => Err(BottError::KeychainDelete),
             },
-        };
+        }
     }
     pub fn get(&self, key: &str) -> BottResult<Option<String>> {
         let password = self.operate(key, None, KeychainOperation::Get)?;
