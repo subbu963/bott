@@ -22,12 +22,14 @@ const LLM_OPENAI: &str = "openai";
 
 #[derive(Debug, Clone)]
 pub struct GenerateOutputOllama {
-    answer: String,
+    raw_answer: String,
+    shell_command: String,
     context: Vec<usize>,
 }
 #[derive(Debug, Clone)]
 pub struct GenerateOutputOpenai {
-    answer: String,
+    raw_answer: String,
+    shell_command: String,
     context: Vec<ChatCompletionRequestMessage>,
 }
 impl GenerateOutputOpenai {
@@ -172,7 +174,6 @@ impl GenerateOutput {
                 GenerateOutput::Ollama(_output)
             }
             LLM_OPENAI => {
-                print!("i am here 1");
                 let _output = openai_generate(query, distro, shell, debug).await?;
                 GenerateOutput::Openai(_output)
             }
@@ -184,8 +185,9 @@ impl GenerateOutput {
 pub fn get_query_system_prompt(distro: &str, shell: &str) -> String {
     return format!(
         r#"
-    You are a helpful code assistant who helps people write single line bash scripts for terminal usage.Bash code must always be enclosed between ```bash and ``` tags. 
-    The bash code needs to be compatible with the users operating system and shell.
+    You are a helpful assistant who helps people with:
+    1) Writing single line shell scripts for terminal usage. Bash/Shell scripts must always be enclosed between ```bash and ``` tags. Return a single bash script only please. Also, give a very brief explanation of what the script does. The bash code needs to be compatible with the users operating system and shell.
+    2) Any other miscellaneous tasks.
     For your information, 
     Operating system: {distro}
     Shell: {shell}

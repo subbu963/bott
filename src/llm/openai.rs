@@ -1,5 +1,5 @@
 use crate::config::BottConfig;
-use crate::errors::{BottError, BottOllamaError, BottOpenaiError};
+use crate::errors::{BottError, BottOpenaiError};
 use crate::llm::{
     get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOpenai,
 };
@@ -106,7 +106,8 @@ pub async fn generate(
     ));
     if debug {
         return Ok(GenerateOutputOpenai {
-            answer: content,
+            raw_answer: content.to_string(),
+            shell_command: content,
             context,
         });
     }
@@ -115,10 +116,15 @@ pub async fn generate(
 
     return match matches {
         Some(c) => Ok(GenerateOutputOpenai {
-            answer: String::from(&c["bash_code"]).trim().to_string(),
+            raw_answer: content.to_string(),
+            shell_command: String::from(&c["bash_code"]).trim().to_string(),
             context,
         }),
-        None => Err(BottError::OpenaiErr(BottOpenaiError::UnableToGetResponse)),
+        None => Ok(GenerateOutputOpenai {
+            raw_answer: content.to_string(),
+            shell_command: String::from(""),
+            context,
+        }),
     };
 }
 
@@ -126,8 +132,9 @@ pub fn print_answer_and_context(output: GenerateOutputOpenai) {
     let encoded_context = GenerateOutputOpenai::encode_context(&output.context);
     let context = serde_json::to_string(&encoded_context).unwrap();
     print!(
-        "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
-        answer = output.answer.trim(),
+        "<RAW-ANSWER>{raw_answer}</RAW-ANSWER><SHELL-COMMAND>{shell_command}</SHELL-COMMAND><CONTEXT>{context}</CONTEXT>",
+        raw_answer = output.raw_answer,
+        shell_command = output.shell_command.trim(),
         context = context
     );
 }

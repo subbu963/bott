@@ -97,7 +97,8 @@ pub async fn generate(
     }
     if (debug) {
         return Ok(GenerateOutputOllama {
-            answer: String::from(body.response),
+            raw_answer: body.response.to_string(),
+            shell_command: String::from(body.response),
             context: body.context,
         });
     }
@@ -105,10 +106,15 @@ pub async fn generate(
     let matches = re.captures(body.response.as_str());
     return match matches {
         Some(c) => Ok(GenerateOutputOllama {
-            answer: String::from(&c["bash_code"]).trim().to_string(),
+            raw_answer: body.response.to_string(),
+            shell_command: String::from(&c["bash_code"]).trim().to_string(),
             context: body.context,
         }),
-        None => Err(BottError::OllamaErr(BottOllamaError::UnableToGetResponse)),
+        None => Ok(GenerateOutputOllama {
+            raw_answer: body.response.to_string(),
+            shell_command: String::from(""),
+            context: body.context,
+        }),
     };
 }
 pub fn get_context() -> Vec<usize> {
@@ -131,8 +137,9 @@ pub fn print_answer_and_context(output: GenerateOutputOllama) {
         .collect::<Vec<String>>()
         .join(" ");
     print!(
-        "<ANSWER>{answer}</ANSWER><CONTEXT>{context}</CONTEXT>",
-        answer = output.answer.trim(),
+        "<RAW-ANSWER>{raw_answer}</RAW-ANSWER><SHELL-COMMAND>{shell_command}</SHELL-COMMAND><CONTEXT>{context}</CONTEXT>",
+        raw_answer = output.raw_answer,
+        shell_command = output.shell_command.trim(),
         context = context
     );
 }

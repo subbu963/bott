@@ -80,18 +80,21 @@ function bott!() {
 			echo "$bott_last_query_response"
 			return $bott_last_query_exit_code
 		fi
-		local answer=$(echo "$bott_last_query_response" | awk -v RS="<ANSWER>" -v ORS="" 'NR>1{gsub(/<\/ANSWER>.*/, ""); print}')
+		local raw_answer=$(echo "$bott_last_query_response" | awk -v RS="<RAW-ANSWER>" -v ORS="" 'NR>1{gsub(/<\/RAW-ANSWER>.*/, ""); print}')
+		local shell_command=$(echo "$bott_last_query_response" | awk -v RS="<SHELL-COMMAND>" -v ORS="" 'NR>1{gsub(/<\/SHELL-COMMAND>.*/, ""); print}')
 		local context=$(echo "$bott_last_query_response" | awk -v RS="<CONTEXT>" -v ORS="" 'NR>1{gsub(/<\/CONTEXT>.*/, ""); print}')
-		if [ -z $answer ]; then
-			echo "Didnt get your question. Please try asking only questions related to bash commands"
-			return 1
-		fi
-		bott_context="$context"
-		echo "Answer: $answer"
-		if bott_ confirm -q "Do you want to run the command?"; then
-			bott_execute_code $answer
-			echo $bott_last_run_output
-			return "$bott_last_run_exit_code"
+		echo $raw_answer
+		if [ -z $shell_command ]; then
+#			echo "Didnt get your question. Please try asking only questions related to bash commands"
+			return 0
+		else
+      bott_context="$context"
+      echo "Command: $shell_command"
+      if bott_ confirm -q "Do you want to run the command?"; then
+        bott_execute_code $shell_command
+        echo $bott_last_run_output
+        return "$bott_last_run_exit_code"
+      fi
 		fi
 		;;
 	"clear")
