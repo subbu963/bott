@@ -103,7 +103,7 @@ fn cli() -> Command {
 async fn main() {
     let manifest = ExtismManifest::new([Wasm::file(
         "/Users/aditya/RustroverProjects/bott-sample-plugin/target/wasm32-unknown-unknown/debug/bott_sample_plugin.wasm",
-    )]);
+    )]).with_allowed_host("*");
     let mut plugin = ExtismPlugin::new(&manifest, [], true).unwrap();
     let res = plugin.call::<&str, &str>("get_prompt", "Aditya").unwrap();
     println!("{}", res);
