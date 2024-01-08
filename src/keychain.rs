@@ -1,7 +1,7 @@
 use crate::errors::BottError;
 use crate::result::BottResult;
 use keyring::Entry;
-use users::{get_current_uid, get_user_by_uid};
+use uzers::{get_current_uid, get_user_by_uid};
 
 pub struct Keychain {
     user: String,
