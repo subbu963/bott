@@ -15,11 +15,29 @@ pub struct OpenaiOptions {
     model: String,
 }
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Plugin {
+    name: String,
+    path: String,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Hook {
+    plugin_name: String,
+    function: String,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Hooks {
+    prompt: Option<Hook>,
+    confirmation: Option<Hook>,
+    answer: Option<Hook>,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct BottConfig {
     version: String,
     llm: String,
     ollama_options: Option<OllamaOptions>,
     openai_options: Option<OpenaiOptions>,
+    plugins: Option<Vec<Plugin>>,
+    hooks: Option<Hooks>,
 }
 impl Default for BottConfig {
     fn default() -> Self {
@@ -32,6 +50,8 @@ impl Default for BottConfig {
             openai_options: Some(OpenaiOptions {
                 model: String::from("gpt-4"),
             }),
+            plugins: None,
+            hooks: None,
         }
     }
 }

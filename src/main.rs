@@ -62,14 +62,9 @@ fn cli() -> Command {
             Command::new("config")
                 .about("Config")
                 .subcommand(
-                    Command::new("get")
-                        .about("Get")
-                        .arg_required_else_help(true)
-                        .arg(
-                            arg!(key: -k --key <KEY> "key")
-                                .required(true)
-                                .value_parser(clap::value_parser!(String)),
-                        ),
+                    Command::new("get").about("Get").arg(
+                        arg!(key: -k --key <KEY> "key").value_parser(clap::value_parser!(String)),
+                    ),
                 )
                 .subcommand(
                     Command::new("set")
@@ -183,7 +178,11 @@ async fn main() {
                     }
                 }
                 ("get", sub_matches) => {
-                    let key = sub_matches.get_one::<String>("key").unwrap().trim();
+                    let default_value = "".to_string();
+                    let key = sub_matches
+                        .get_one::<String>("key")
+                        .unwrap_or(&default_value)
+                        .trim();
 
                     let mut config: BottConfig = match BottConfig::load() {
                         Ok(c) => c,
@@ -192,6 +191,10 @@ async fn main() {
                             exit(exitcode::UNAVAILABLE);
                         }
                     };
+                    if key.is_empty() {
+                        print!("{}", serde_json::to_string(&config).unwrap());
+                        exit(exitcode::OK);
+                    }
                     match config.get_key(key) {
                         Ok(k) => {
                             match k {
