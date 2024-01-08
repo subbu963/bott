@@ -1,4 +1,8 @@
-alias bott_="$BOTT_DIR/bott";
+if [ -z "$BOTT_EXECUTABLE_DIR" ]; then
+	export BOTT_EXECUTABLE_DIR="$BOTT_DIR"
+fi
+
+alias bott_="$BOTT_EXECUTABLE_DIR/bott"
 
 function bott_init() {
 	export bott_last_run_executed_code=""

@@ -3,6 +3,7 @@ use crate::keychain::Keychain;
 use crate::result::BottResult;
 use directories::UserDirs;
 use serde_derive::{Deserialize, Serialize};
+use std::env;
 use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -41,6 +42,17 @@ impl BottConfig {
         if let Some(user_dirs) = UserDirs::new() {
             _user_dirs = user_dirs.clone();
             home = _user_dirs.home_dir();
+        }
+        let bott_dir_env = env::var("BOTT_DIR").unwrap_or(String::from(""));
+        if !bott_dir_env.is_empty() {
+            return match Path::new(bott_dir_env.as_str())
+                .join(Path::new("config.yml"))
+                .into_os_string()
+                .into_string()
+            {
+                Ok(s) => Ok(s),
+                Err(_) => Err(BottError::ConfigPathErr),
+            };
         }
         let bott_directory = Path::new(".bott-cli/config.yml");
         return match home.join(bott_directory).into_os_string().into_string() {
