@@ -5,7 +5,6 @@ mod llm;
 mod result;
 
 use crate::config::BottConfig;
-use crate::llm::openai::{generate as openai_generate, get_context};
 use crate::llm::{generate, print_answer_and_context};
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
