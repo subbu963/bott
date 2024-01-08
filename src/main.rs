@@ -9,9 +9,9 @@ use crate::llm::openai::{generate as openai_generate, get_context};
 use crate::llm::{generate, print_answer_and_context};
 use clap::{arg, Command};
 use dialoguer::{theme::ColorfulTheme, Confirm};
+use extism::{Manifest as ExtismManifest, Plugin as ExtismPlugin, Wasm};
 use spinners::{Spinner, Spinners};
 use std::process::exit;
-
 fn cli() -> Command {
     Command::new("bott")
         .about("Your friendly terminal-hood chatbot")
@@ -102,6 +102,13 @@ fn cli() -> Command {
 
 #[tokio::main]
 async fn main() {
+    let manifest = ExtismManifest::new([Wasm::file(
+        "/Users/aditya/RustroverProjects/bott-sample-plugin/target/wasm32-unknown-unknown/debug/bott_sample_plugin.wasm",
+    )]);
+    let mut plugin = ExtismPlugin::new(&manifest, [], true).unwrap();
+    let res = plugin.call::<&str, &str>("get_prompt", "Aditya").unwrap();
+    println!("{}", res);
+
     let matches = cli().get_matches();
 
     match matches.subcommand() {

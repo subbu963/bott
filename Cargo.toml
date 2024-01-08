@@ -22,3 +22,6 @@ directories = "5.0.1"
 async-openai = "0.17.1"
 serde_json = "1.0.108"
 base64 = "0.21.5"
+extism = "^1.0.0-rc3"
+url = "2.5.0"
+
