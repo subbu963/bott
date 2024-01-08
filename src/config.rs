@@ -54,7 +54,7 @@ impl BottConfig {
                 Err(_) => Err(BottError::ConfigPathErr),
             };
         }
-        let bott_directory = Path::new(".bott-cli/config.yml");
+        let bott_directory = Path::new(".bott/config.yml");
         return match home.join(bott_directory).into_os_string().into_string() {
             Ok(s) => Ok(s),
             Err(_) => Err(BottError::ConfigPathErr),
