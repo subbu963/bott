@@ -1,5 +1,4 @@
 use crate::config::BottConfig;
-use crate::errors::{BottError, BottOpenaiError};
 use crate::llm::{
     get_debug_prompt, get_debug_system_prompt, get_query_system_prompt, GenerateOutputOpenai,
 };
