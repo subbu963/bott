@@ -26,6 +26,35 @@ pub struct GenerateOutputOllama {
     shell_command: String,
     context: Vec<usize>,
 }
+fn content_from_user_message(content: ChatCompletionRequestUserMessageContent) -> String {
+    return match content {
+        ChatCompletionRequestUserMessageContent::Text(t) => t,
+        _ => unimplemented!("Array(Vec<ChatCompletionRequestMessageContentPart>) not implemented!"),
+    };
+}
+fn _encode_content(content: String) -> String {
+    general_purpose::STANDARD.encode(content)
+}
+fn decode_content(
+    content: ChatCompletionRequestUserMessageContent,
+) -> ChatCompletionRequestUserMessageContent {
+    return match content {
+        ChatCompletionRequestUserMessageContent::Text(t) => {
+            ChatCompletionRequestUserMessageContent::Text(
+                String::from_utf8(general_purpose::STANDARD.decode(t.as_bytes()).unwrap()).unwrap(),
+            )
+        }
+        _ => unimplemented!("Array(Vec<ChatCompletionRequestMessageContentPart>) not implemented!"),
+    };
+}
+fn _decode_content(content: String) -> String {
+    String::from_utf8(
+        general_purpose::STANDARD
+            .decode(content.as_bytes())
+            .unwrap(),
+    )
+    .unwrap()
+}
 #[derive(Debug, Clone)]
 pub struct GenerateOutputOpenai {
     raw_answer: String,
@@ -38,43 +67,32 @@ impl GenerateOutputOpenai {
     ) -> Vec<ChatCompletionRequestMessage> {
         return context
             .iter()
-            .map(|m| match m {
-                ChatCompletionRequestMessage::User(_m) => {
-                    let mut c = _m.clone();
-                    if let Some(ChatCompletionRequestUserMessageContent::Text(_c)) = c.content {
-                        c.content = Some(ChatCompletionRequestUserMessageContent::Text(
-                            general_purpose::STANDARD.encode(_c),
-                        ));
-                    }
-                    ChatCompletionRequestMessage::User(c)
+            .map(|m| match m.clone() {
+                ChatCompletionRequestMessage::User(mut _m) => {
+                    _m.content = ChatCompletionRequestUserMessageContent::Text(_encode_content(
+                        content_from_user_message(_m.content),
+                    ));
+                    ChatCompletionRequestMessage::User(_m)
                 }
-                ChatCompletionRequestMessage::System(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
-                    }
-                    ChatCompletionRequestMessage::System(c)
+                ChatCompletionRequestMessage::System(mut _m) => {
+                    _m.content = _encode_content(_m.content);
+                    ChatCompletionRequestMessage::System(_m)
                 }
-                ChatCompletionRequestMessage::Assistant(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                ChatCompletionRequestMessage::Assistant(mut _m) => {
+                    if _m.content.is_some() {
+                        _m.content = Some(_encode_content(_m.content.unwrap()));
                     }
-                    ChatCompletionRequestMessage::Assistant(c)
+                    ChatCompletionRequestMessage::Assistant(_m)
                 }
-                ChatCompletionRequestMessage::Tool(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
-                    }
-                    ChatCompletionRequestMessage::Tool(c)
+                ChatCompletionRequestMessage::Tool(mut _m) => {
+                    _m.content = _encode_content(_m.content);
+                    ChatCompletionRequestMessage::Tool(_m)
                 }
-                ChatCompletionRequestMessage::Function(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(general_purpose::STANDARD.encode(c.content.unwrap()));
+                ChatCompletionRequestMessage::Function(mut _m) => {
+                    if _m.content.is_some() {
+                        _m.content = Some(_encode_content(_m.content.unwrap()));
                     }
-                    ChatCompletionRequestMessage::Function(c)
+                    ChatCompletionRequestMessage::Function(_m)
                 }
             })
             .collect::<Vec<ChatCompletionRequestMessage>>();
@@ -84,72 +102,37 @@ impl GenerateOutputOpenai {
     ) -> Vec<ChatCompletionRequestMessage> {
         return context
             .iter()
-            .map(|m| match m {
-                ChatCompletionRequestMessage::User(_m) => {
-                    let mut c = _m.clone();
-                    if let Some(ChatCompletionRequestUserMessageContent::Text(_c)) = c.content {
-                        c.content = Some(ChatCompletionRequestUserMessageContent::Text(
-                            String::from_utf8(general_purpose::STANDARD.decode(_c).unwrap())
-                                .unwrap(),
-                        ));
-                    }
-                    ChatCompletionRequestMessage::User(c)
+            .map(|m| match m.clone() {
+                ChatCompletionRequestMessage::User(mut _m) => {
+                    let content = match _m.content {
+                        ChatCompletionRequestUserMessageContent::Text(t) => t,
+                        _ => unimplemented!(
+                            "Array(Vec<ChatCompletionRequestMessageContentPart>) not implemented!"
+                        ),
+                    };
+                    _m.content =
+                        ChatCompletionRequestUserMessageContent::Text(_decode_content(content));
+                    ChatCompletionRequestMessage::User(_m)
                 }
-                ChatCompletionRequestMessage::System(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(
-                            String::from_utf8(
-                                general_purpose::STANDARD
-                                    .decode(c.content.unwrap())
-                                    .unwrap(),
-                            )
-                            .unwrap(),
-                        );
-                    }
-                    ChatCompletionRequestMessage::System(c)
+                ChatCompletionRequestMessage::System(mut _m) => {
+                    _m.content = _decode_content(_m.content);
+                    ChatCompletionRequestMessage::System(_m)
                 }
-                ChatCompletionRequestMessage::Assistant(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(
-                            String::from_utf8(
-                                general_purpose::STANDARD
-                                    .decode(c.content.unwrap())
-                                    .unwrap(),
-                            )
-                            .unwrap(),
-                        );
+                ChatCompletionRequestMessage::Assistant(mut _m) => {
+                    if _m.content.is_some() {
+                        _m.content = Some(_decode_content(_m.content.unwrap()));
                     }
-                    ChatCompletionRequestMessage::Assistant(c)
+                    ChatCompletionRequestMessage::Assistant(_m)
                 }
-                ChatCompletionRequestMessage::Tool(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(
-                            String::from_utf8(
-                                general_purpose::STANDARD
-                                    .decode(c.content.unwrap())
-                                    .unwrap(),
-                            )
-                            .unwrap(),
-                        );
-                    }
-                    ChatCompletionRequestMessage::Tool(c)
+                ChatCompletionRequestMessage::Tool(mut _m) => {
+                    _m.content = _decode_content(_m.content);
+                    ChatCompletionRequestMessage::Tool(_m)
                 }
-                ChatCompletionRequestMessage::Function(_m) => {
-                    let mut c = _m.clone();
-                    if c.content.is_some() {
-                        c.content = Some(
-                            String::from_utf8(
-                                general_purpose::STANDARD
-                                    .decode(c.content.unwrap())
-                                    .unwrap(),
-                            )
-                            .unwrap(),
-                        );
+                ChatCompletionRequestMessage::Function(mut _m) => {
+                    if _m.content.is_some() {
+                        _m.content = Some(_decode_content(_m.content.unwrap()));
                     }
-                    ChatCompletionRequestMessage::Function(c)
+                    ChatCompletionRequestMessage::Function(_m)
                 }
             })
             .collect::<Vec<ChatCompletionRequestMessage>>();
